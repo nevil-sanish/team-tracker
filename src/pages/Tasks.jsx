@@ -1,151 +1,434 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import {
+  LayoutGrid, List, Filter, AlertCircle, MessageSquare,
+  Paperclip, Plus, X, Trash2, GripVertical, ChevronDown
+} from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { LayoutList, LayoutGrid, Plus, Filter, MoreHorizontal, Clock } from 'lucide-react';
-import { cn } from '../components/Sidebar';
+import { cn, formatRelative, priorityMeta, statusMeta } from '../lib/utils';
+import Avatar from '../components/Avatar';
+
+const COLUMNS = ['todo', 'in_progress', 'review', 'done'];
 
 export default function Tasks() {
-  const { mode } = useStore();
-  const [view, setView] = useState('kanban'); // kanban or list
+  const { mode, tasks, addTask, removeTask, updateTask, moveTask, user } = useStore();
+  const [view, setView] = useState('kanban');
+  const [filterPriority, setFilterPriority] = useState(null);
+  const [filterStatus, setFilterStatus] = useState(null);
+  const [showNewTask, setShowNewTask] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [draggedId, setDraggedId] = useState(null);
 
-  const tasks = [
-    { id: 1, title: 'Design System Update', status: 'todo', priority: 'high', assignee: 'Alex', due: 'Today' },
-    { id: 2, title: 'Homepage Hero Banner', status: 'in-progress', priority: 'medium', assignee: 'Maria', due: 'Tomorrow' },
-    { id: 3, title: 'Fix Navigation Bug', status: 'review', priority: 'high', assignee: 'Jordan', due: 'Overdue' },
-    { id: 4, title: 'Weekly Report', status: 'done', priority: 'low', assignee: 'Alex', due: 'Yesterday' },
-  ];
+  const visible = useMemo(() => {
+    let items = tasks.filter(t => mode === 'personal' ? !t.teamId : t.teamId === 'group');
+    if (filterPriority) items = items.filter(t => t.priority === filterPriority);
+    if (filterStatus) items = items.filter(t => t.status === filterStatus);
+    return items;
+  }, [tasks, mode, filterPriority, filterStatus]);
 
-  const columns = [
-    { id: 'todo', title: 'To Do', color: 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300' },
-    { id: 'in-progress', title: 'In Progress', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
-    { id: 'review', title: 'Review', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' },
-    { id: 'done', title: 'Done', color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
-  ];
+  const overdueCount = visible.filter(
+    t => t.status !== 'done' && new Date(t.dueDate) < new Date(new Date().toDateString())
+  ).length;
+
+  const handleDragStart = (e, taskId) => {
+    setDraggedId(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDrop = (e, newStatus) => {
+    e.preventDefault();
+    if (draggedId) {
+      moveTask(draggedId, newStatus);
+      setDraggedId(null);
+    }
+  };
 
   return (
-    <div className="h-full flex flex-col space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Tasks</h2>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Manage your {mode === 'group' ? 'team\'s ' : ''}work and deadlines.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-            <button 
-              className={cn("p-1.5 rounded-md transition-colors", view === 'list' ? "bg-white dark:bg-slate-950 shadow-sm text-primary" : "text-slate-500")}
-              onClick={() => setView('list')}
-            >
-              <LayoutList size={18} />
+    <div className="h-full flex flex-col animate-fade-in">
+      {/* Controls */}
+      <div className="flex items-center justify-between flex-wrap gap-3 px-6 py-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div className="flex items-center gap-2">
+          <div className="tab-group">
+            <button className={`tab-item ${view === 'kanban' ? 'active' : ''}`} onClick={() => setView('kanban')} style={{ fontSize: 11, padding: '4px 12px' }}>
+              <LayoutGrid size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /> Kanban
             </button>
-            <button 
-              className={cn("p-1.5 rounded-md transition-colors", view === 'kanban' ? "bg-white dark:bg-slate-950 shadow-sm text-primary" : "text-slate-500")}
-              onClick={() => setView('kanban')}
-            >
-              <LayoutGrid size={18} />
+            <button className={`tab-item ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')} style={{ fontSize: 11, padding: '4px 12px' }}>
+              <List size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /> List
             </button>
           </div>
-          <button className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-            <Filter size={16} />
-            <span>Filter</span>
+
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowFilters(!showFilters)}>
+            <Filter size={13} /> Filters
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm">
-            <Plus size={16} />
-            <span>Add Task</span>
+
+          {(filterPriority || filterStatus) && (
+            <button onClick={() => { setFilterPriority(null); setFilterStatus(null); }} style={{ fontSize: 11, color: 'var(--color-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              Clear all
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          {overdueCount > 0 && (
+            <span style={{ fontSize: 11, color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}>
+              <AlertCircle size={13} /> {overdueCount} overdue
+            </span>
+          )}
+          <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
+            {visible.length} tasks
+          </span>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowNewTask(true)}>
+            <Plus size={14} /> New Task
           </button>
         </div>
       </div>
 
-      {view === 'kanban' ? (
-        <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
-          {columns.map(col => (
-            <div key={col.id} className="flex flex-col w-80 shrink-0 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-4">
-                <span className={cn("px-2.5 py-1 text-xs font-semibold rounded-md", col.color)}>
-                  {col.title}
-                </span>
-                <span className="text-xs font-medium text-slate-500 bg-white dark:bg-slate-800 px-2 py-1 rounded-full shadow-sm">
-                  {tasks.filter(t => t.status === col.id).length}
-                </span>
-              </div>
-              <div className="flex-1 overflow-y-auto space-y-3">
-                {tasks.filter(t => t.status === col.id).map(task => (
-                  <div key={task.id} className="bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-primary/50 cursor-pointer transition-all group">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className={cn(
-                        "text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-sm",
-                        task.priority === 'high' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
-                        task.priority === 'medium' ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                        "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      )}>
-                        {task.priority}
-                      </div>
-                      <button className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreHorizontal size={16} />
-                      </button>
-                    </div>
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">{task.title}</h4>
-                    <div className="flex items-center justify-between mt-auto">
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                        <Clock size={14} className={task.due === 'Overdue' ? 'text-red-500' : ''} />
-                        <span className={task.due === 'Overdue' ? 'text-red-500 font-semibold' : ''}>{task.due}</span>
-                      </div>
-                      <div className="w-6 h-6 rounded-full bg-slate-200 overflow-hidden border border-slate-300 dark:border-slate-700">
-                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${task.assignee}`} alt={task.assignee} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+      {/* Filters Row */}
+      {showFilters && (
+        <div className="flex flex-wrap items-center gap-2 px-6 py-2 animate-slide-in" style={{ borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-secondary)' }}>
+          <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)' }}>Priority:</span>
+          {Object.entries(priorityMeta).map(([key, meta]) => (
+            <button
+              key={key}
+              className="chip"
+              onClick={() => setFilterPriority(filterPriority === key ? null : key)}
+              style={{
+                background: filterPriority === key ? meta.bg : 'var(--color-bg-tertiary)',
+                color: filterPriority === key ? meta.text : 'var(--color-text-muted)',
+                borderColor: filterPriority === key ? meta.color : 'transparent',
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: meta.color }} />
+              {meta.label}
+            </button>
+          ))}
+
+          <div style={{ width: 1, height: 20, background: 'var(--color-border-default)', margin: '0 4px' }} />
+
+          <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)' }}>Status:</span>
+          {Object.entries(statusMeta).map(([key, meta]) => (
+            <button
+              key={key}
+              className="chip"
+              onClick={() => setFilterStatus(filterStatus === key ? null : key)}
+              style={{
+                background: filterStatus === key ? 'var(--color-accent-soft)' : 'var(--color-bg-tertiary)',
+                color: filterStatus === key ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              {meta.label}
+            </button>
           ))}
         </div>
-      ) : (
-        <div className="flex-1 bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-500 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-              <tr>
-                <th className="px-6 py-4 font-medium">Task Name</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium">Assignee</th>
-                <th className="px-6 py-4 font-medium">Due Date</th>
-                <th className="px-6 py-4 font-medium">Priority</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.map((task) => (
-                <tr key={task.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{task.title}</td>
-                  <td className="px-6 py-4">
-                    <span className="capitalize px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                      {task.status.replace('-', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${task.assignee}`} className="w-6 h-6 rounded-full" alt="" />
-                      <span className="text-slate-600 dark:text-slate-400">{task.assignee}</span>
-                    </div>
-                  </td>
-                  <td className={cn("px-6 py-4 font-medium", task.due === 'Overdue' ? 'text-red-500' : 'text-slate-600 dark:text-slate-400')}>
-                    {task.due}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={cn(
-                      "text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-sm",
-                      task.priority === 'high' ? "bg-red-100 text-red-700" :
-                      task.priority === 'medium' ? "bg-yellow-100 text-yellow-700" :
-                      "bg-green-100 text-green-700"
-                    )}>
-                      {task.priority}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      )}
+
+      {/* Views */}
+      <div className="flex-1 overflow-hidden" style={{ background: 'var(--color-bg-primary)' }}>
+        {view === 'kanban' ? (
+          <KanbanView tasks={visible} onDragStart={handleDragStart} onDrop={handleDrop} onRemove={removeTask} onUpdate={updateTask} />
+        ) : (
+          <ListView tasks={visible} onRemove={removeTask} onUpdate={updateTask} />
+        )}
+      </div>
+
+      {/* New Task Modal */}
+      {showNewTask && (
+        <NewTaskModal
+          onClose={() => setShowNewTask(false)}
+          onSave={(task) => {
+            addTask({
+              ...task,
+              teamId: mode === 'group' ? 'group' : null,
+              assignee: user?.name || 'You',
+              updatedBy: user?.name || 'You',
+              comments: 0,
+              attachments: 0,
+            });
+            setShowNewTask(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Kanban View ── */
+function KanbanView({ tasks, onDragStart, onDrop, onRemove, onUpdate }) {
+  return (
+    <div className="h-full overflow-x-auto px-6 py-5" style={{ display: 'flex', gap: 16 }}>
+      {COLUMNS.map(status => {
+        const items = tasks.filter(t => t.status === status);
+        const meta = statusMeta[status];
+        return (
+          <div
+            key={status}
+            style={{ width: 290, flexShrink: 0, display: 'flex', flexDirection: 'column' }}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => onDrop(e, status)}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: meta.color }} />
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--color-text-muted)' }}>
+                  {meta.label}
+                </span>
+              </div>
+              <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', padding: '2px 6px', background: 'var(--color-bg-tertiary)', borderRadius: 5 }}>
+                {String(items.length).padStart(2, '0')}
+              </span>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 20, paddingRight: 4 }}>
+              {items.length === 0 ? (
+                <div style={{
+                  border: '2px dashed var(--color-border-default)',
+                  borderRadius: 12,
+                  padding: '28px 0',
+                  textAlign: 'center',
+                  fontSize: 11,
+                  fontStyle: 'italic',
+                  color: 'var(--color-text-disabled)',
+                }}>
+                  Drop tasks here
+                </div>
+              ) : (
+                items.map(t => (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    dim={status === 'done'}
+                    draggable
+                    onDragStart={e => onDragStart(e, t.id)}
+                    onRemove={() => onRemove(t.id)}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Task Card ── */
+function TaskCard({ task, dim, draggable, onDragStart, onRemove, compact }) {
+  const overdue = task.status !== 'done' && new Date(task.dueDate) < new Date(new Date().toDateString());
+  const due = new Date(task.dueDate);
+  const dueLabel = due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const pMeta = priorityMeta[task.priority] || priorityMeta.medium;
+
+  return (
+    <div
+      className="card group"
+      draggable={draggable}
+      onDragStart={onDragStart}
+      style={{
+        padding: compact ? 10 : 14,
+        opacity: dim ? 0.5 : 1,
+        cursor: draggable ? 'grab' : 'pointer',
+        borderColor: overdue ? 'rgba(225, 112, 85, 0.3)' : undefined,
+        transition: 'all 0.2s',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, marginBottom: 8 }}>
+        <span className="badge" style={{ background: pMeta.bg, color: pMeta.text }}>
+          {pMeta.label}
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{
+            fontSize: 10,
+            fontFamily: 'var(--font-mono)',
+            color: overdue ? 'var(--color-danger)' : 'var(--color-text-muted)',
+            fontWeight: overdue ? 700 : 400,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 3,
+          }}>
+            {overdue && <AlertCircle size={11} />}
+            {dueLabel}
+          </span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove?.(); }}
+            className="btn-ghost btn-icon"
+            style={{ width: 22, height: 22, color: 'var(--color-danger)', opacity: 0, transition: 'opacity 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.opacity = 1}
+            onMouseLeave={e => e.currentTarget.style.opacity = 0}
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </div>
+
+      <h4 style={{
+        fontSize: 13,
+        fontWeight: 600,
+        color: 'var(--color-text-primary)',
+        lineHeight: 1.3,
+        textDecoration: dim ? 'line-through' : 'none',
+        marginBottom: 4,
+      }}>
+        {task.title}
+      </h4>
+
+      {!compact && task.description && (
+        <p style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.4, marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {task.description}
+        </p>
+      )}
+
+      {task.progress !== undefined && task.status === 'in_progress' && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ height: 4, background: 'var(--color-bg-tertiary)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${task.progress}%`, background: 'linear-gradient(90deg, var(--color-accent), var(--color-info))', borderRadius: 2, transition: 'width 0.3s' }} />
+          </div>
+          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)', marginTop: 2, display: 'block' }}>{task.progress}%</span>
         </div>
       )}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: 'var(--color-text-muted)' }}>
+          {task.comments > 0 && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <MessageSquare size={12} /> {task.comments}
+            </span>
+          )}
+          {task.attachments > 0 && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Paperclip size={12} /> {task.attachments}
+            </span>
+          )}
+        </div>
+        <Avatar name={task.assignee} size="xs" status="online" showStatus />
+      </div>
+
+      <p style={{
+        fontSize: 10,
+        color: 'var(--color-text-disabled)',
+        fontStyle: 'italic',
+        marginTop: 8,
+        paddingTop: 6,
+        borderTop: '1px solid var(--color-border-subtle)',
+      }}>
+        edited by {task.updatedBy} · {formatRelative(task.updatedAt)}
+      </p>
+    </div>
+  );
+}
+
+/* ── List View ── */
+function ListView({ tasks, onRemove, onUpdate }) {
+  const sorted = [...tasks].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+
+  return (
+    <div className="h-full overflow-y-auto px-6 py-5">
+      <div className="card-flat" style={{ maxWidth: 1000, margin: '0 auto', overflow: 'hidden', borderRadius: 12 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: 'var(--color-bg-tertiary)' }}>
+              {['Task', 'Status', 'Priority', 'Due', 'Assignee', 'Updated'].map(h => (
+                <th key={h} style={{ textAlign: 'left', padding: '10px 14px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)' }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map(t => {
+              const overdue = t.status !== 'done' && new Date(t.dueDate) < new Date(new Date().toDateString());
+              const pMeta = priorityMeta[t.priority] || priorityMeta.medium;
+              const sMeta = statusMeta[t.status] || statusMeta.todo;
+              return (
+                <tr
+                  key={t.id}
+                  style={{ borderTop: '1px solid var(--color-border-subtle)', cursor: 'pointer', transition: 'background 0.15s' }}
+                  className="hover:bg-[var(--color-bg-hover)]"
+                >
+                  <td style={{ padding: '10px 14px' }}>
+                    <p style={{ fontWeight: 600, color: t.status === 'done' ? 'var(--color-text-muted)' : 'var(--color-text-primary)', textDecoration: t.status === 'done' ? 'line-through' : 'none' }}>
+                      {t.title}
+                    </p>
+                    <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
+                      {t.description}
+                    </p>
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <span style={{ fontSize: 11, color: sMeta.color }}>{sMeta.label}</span>
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <span className="badge" style={{ background: pMeta.bg, color: pMeta.text }}>{pMeta.label}</span>
+                  </td>
+                  <td style={{ padding: '10px 14px', fontSize: 11, fontFamily: 'var(--font-mono)', color: overdue ? 'var(--color-danger)' : 'var(--color-text-muted)', fontWeight: overdue ? 700 : 400 }}>
+                    {overdue && <AlertCircle size={11} style={{ display: 'inline', marginRight: 3, verticalAlign: 'middle' }} />}
+                    {new Date(t.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Avatar name={t.assignee} size="xs" />
+                      <span style={{ fontSize: 12 }}>{t.assignee}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: '10px 14px', fontSize: 10, color: 'var(--color-text-disabled)', fontStyle: 'italic' }}>
+                    {t.updatedBy} · {formatRelative(t.updatedAt)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {sorted.length === 0 && (
+          <div style={{ padding: 48, textAlign: 'center', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+            No tasks match your filters.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── New Task Modal ── */
+function NewTaskModal({ onClose, onSave }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState('medium');
+  const [status, setStatus] = useState('todo');
+  const [dueDate, setDueDate] = useState(new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)' }}>New Task</h2>
+          <button onClick={onClose} className="btn-ghost btn-icon" style={{ width: 28, height: 28 }}><X size={16} /></button>
+        </div>
+
+        <form onSubmit={e => { e.preventDefault(); if (title.trim()) onSave({ title: title.trim(), description, priority, status, dueDate }); }}>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Title</label>
+            <input className="input" placeholder="Task title" value={title} onChange={e => setTitle(e.target.value)} autoFocus />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Description</label>
+            <textarea className="input" placeholder="What needs to be done?" value={description} onChange={e => setDescription(e.target.value)} rows={3} style={{ resize: 'vertical' }} />
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Priority</label>
+              <select className="input" value={priority} onChange={e => setPriority(e.target.value)}>
+                {Object.entries(priorityMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Due Date</label>
+              <input className="input" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button>
+            <button type="submit" className="btn btn-primary" style={{ flex: 1 }}><Plus size={14} /> Create Task</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

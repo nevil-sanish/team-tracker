@@ -1,146 +1,272 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  Calendar, CheckSquare, FileText, MessageSquare, 
-  Video, Activity, BarChart2, Folder, 
-  Menu, X, Sun, Moon, LogOut, Settings, User
+import {
+  Calendar, CheckSquare, FileText, MessageSquare,
+  Phone, Activity, BarChart2, Folder,
+  ChevronLeft, ChevronRight, Settings, LogOut, User, Users
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { cn } from '../lib/utils';
+import { logout } from '../lib/firebase';
+import Avatar from './Avatar';
+import StatusBadge from './StatusBadge';
 
-export function cn(...inputs) {
-  return twMerge(clsx(inputs));
-}
+const navItems = [
+  { icon: Calendar, label: 'Calendar', path: '/calendar', modes: ['personal', 'group'] },
+  { icon: CheckSquare, label: 'Tasks', path: '/tasks', modes: ['personal', 'group'] },
+  { icon: FileText, label: 'Notes', path: '/notes', modes: ['personal', 'group'] },
+  { icon: MessageSquare, label: 'Chat', path: '/chat', modes: ['personal', 'group'] },
+  { icon: Phone, label: 'Calls', path: '/calls', modes: ['personal', 'group'] },
+  { icon: Activity, label: 'Activity', path: '/activity', modes: ['group'] },
+  { icon: BarChart2, label: 'Analytics', path: '/analytics', modes: ['group'] },
+  { icon: Folder, label: 'Resources', path: '/resources', modes: ['group'] },
+];
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const { mode, toggleMode, activeTeamId, setActiveTeamId, teams } = useStore();
+  const { mode, toggleMode, user, userStatus, group, exitGroup, setShowGroupSetup } = useStore();
 
-  const navItems = [
-    { icon: Calendar, label: 'Calendar', path: '/calendar' },
-    { icon: CheckSquare, label: 'Tasks', path: '/tasks' },
-    { icon: FileText, label: 'Notes', path: '/notes' },
-    { icon: MessageSquare, label: 'Chat', path: '/chat' },
-    { icon: Video, label: 'Calls', path: '/calls' },
-    { icon: Activity, label: 'Activity', path: '/activity' },
-  ];
-
-  const groupOnlyItems = [
-    { icon: BarChart2, label: 'Analytics', path: '/analytics' },
-    { icon: Folder, label: 'Resource Hub', path: '/resources' },
-  ];
-
-  const displayedNavItems = mode === 'group' 
-    ? [...navItems, ...groupOnlyItems] 
-    : navItems;
+  const visibleItems = navItems.filter(item => item.modes.includes(mode));
 
   return (
-    <aside 
+    <aside
       className={cn(
-        "bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-300 relative z-20",
-        collapsed ? "w-20" : "w-64"
+        "flex flex-col border-r shrink-0 transition-all duration-300",
+        collapsed ? "w-[68px]" : "w-[256px]"
       )}
+      style={{
+        background: 'var(--color-bg-secondary)',
+        borderColor: 'var(--color-border-subtle)',
+      }}
     >
-      <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-800">
-        {!collapsed && (
-          <div className="flex items-center gap-2 font-bold text-xl text-primary">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">
-              S
-            </div>
-            TeamSync
+      {/* Brand + Collapse */}
+      <div
+        className={cn("flex items-center justify-between px-4", collapsed && "justify-center")}
+        style={{
+          height: 60,
+          borderBottom: '1px solid var(--color-border-subtle)',
+        }}
+      >
+        <NavLink to="/" className="flex items-center gap-2.5 min-w-0" style={{ textDecoration: 'none' }}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 10,
+              background: 'linear-gradient(135deg, var(--color-accent), var(--color-accent-hover))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 700,
+              fontSize: 16,
+              flexShrink: 0,
+              boxShadow: '0 2px 12px rgba(108, 92, 231, 0.3)',
+            }}
+          >
+            T
           </div>
-        )}
-        {collapsed && (
-          <div className="w-10 h-10 mx-auto rounded-lg bg-primary flex items-center justify-center text-white font-bold text-xl">
-            S
-          </div>
-        )}
-        <button 
-          onClick={() => setCollapsed(!collapsed)}
-          className={cn(
-            "p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500",
-            collapsed && "absolute -right-3 top-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full shadow-sm"
+          {!collapsed && (
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', letterSpacing: '-0.02em' }}>
+              Team Tracker
+            </span>
           )}
+        </NavLink>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="btn-ghost btn-icon"
+          style={{ width: 28, height: 28, borderRadius: 8, marginLeft: collapsed ? 0 : 'auto' }}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {collapsed ? <Menu size={16} /> : <X size={20} />}
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
       </div>
 
-      <div className="p-4">
-        {/* Mode Toggle */}
-        <div 
-          className="relative flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-lg cursor-pointer select-none"
-          onClick={toggleMode}
-        >
-          <div 
-            className={cn(
-              "absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white dark:bg-slate-950 shadow-sm rounded-md transition-all duration-300",
-              mode === 'personal' ? "left-1" : "left-[calc(50%+2px)]"
-            )}
-          />
-          <div className={cn(
-            "relative z-10 flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors",
-            mode === 'personal' ? "text-primary" : "text-slate-500 dark:text-slate-400"
-          )}>
-            <User size={16} />
-            {!collapsed && <span>Personal</span>}
-          </div>
-          <div className={cn(
-            "relative z-10 flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors",
-            mode === 'group' ? "text-primary" : "text-slate-500 dark:text-slate-400"
-          )}>
-            <Menu size={16} />
-            {!collapsed && <span>Group</span>}
-          </div>
-        </div>
-
-        {/* Team Selector if Group Mode */}
-        {mode === 'group' && !collapsed && (
-          <div className="mt-4">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Active Team</p>
-            <select 
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm rounded-md px-3 py-2 outline-none focus:border-primary"
-              value={activeTeamId || ''}
-              onChange={(e) => setActiveTeamId(e.target.value)}
+      {/* Mode Toggle */}
+      <div className={cn("p-3", collapsed && "px-2")}>
+        {!collapsed ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: 3,
+              background: 'var(--color-bg-tertiary)',
+              borderRadius: 10,
+              cursor: 'pointer',
+              position: 'relative',
+            }}
+            onClick={toggleMode}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                top: 3,
+                bottom: 3,
+                width: 'calc(50% - 3px)',
+                background: 'var(--color-bg-elevated)',
+                borderRadius: 8,
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                left: mode === 'personal' ? 3 : 'calc(50%)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              }}
+            />
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                padding: '7px 0',
+                fontSize: 12,
+                fontWeight: 600,
+                position: 'relative',
+                zIndex: 1,
+                color: mode === 'personal' ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                transition: 'color 0.2s',
+              }}
             >
-              <option value="" disabled>Select a Team...</option>
-              {teams.map(team => (
-                <option key={team.id} value={team.id}>{team.name}</option>
-              ))}
-            </select>
+              <User size={14} />
+              <span>Personal</span>
+            </div>
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                padding: '7px 0',
+                fontSize: 12,
+                fontWeight: 600,
+                position: 'relative',
+                zIndex: 1,
+                color: mode === 'group' ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                transition: 'color 0.2s',
+              }}
+            >
+              <Users size={14} />
+              <span>Group</span>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={toggleMode}
+            className="btn-ghost"
+            style={{
+              width: '100%',
+              padding: 6,
+              borderRadius: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            title={mode === 'personal' ? 'Switch to Group' : 'Switch to Personal'}
+          >
+            {mode === 'personal' ? <User size={16} /> : <Users size={16} />}
+          </button>
+        )}
+
+        {/* Group Info */}
+        {mode === 'group' && group && !collapsed && (
+          <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'var(--color-accent-soft)', border: '1px solid rgba(108,92,231,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-accent)' }}>Active Group</span>
+            </div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 2 }}>{group.name}</p>
+            <p style={{ fontSize: 10, color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+              PW: {group.password || 'None'}
+            </p>
+            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+              <button
+                onClick={() => setShowGroupSetup(true)}
+                className="btn-sm btn-secondary"
+                style={{ flex: 1, fontSize: 10, padding: '4px 8px' }}
+              >
+                Switch
+              </button>
+              <button
+                onClick={exitGroup}
+                className="btn-sm btn-danger"
+                style={{ flex: 1, fontSize: 10, padding: '4px 8px' }}
+              >
+                Exit
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto py-4">
-        <nav className="space-y-1 px-3">
-          {displayedNavItems.map((item) => (
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto px-2 space-y-0.5" style={{ paddingBottom: 16 }}>
+        {visibleItems.map((item) => {
+          const Icon = item.icon;
+          return (
             <NavLink
               key={item.path}
               to={item.path}
-              className={({ isActive }) => cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                isActive 
-                  ? "bg-primary/10 text-primary dark:bg-primary/20" 
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100"
-              )}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                  collapsed && "justify-center px-2"
+                )
+              }
+              style={({ isActive }) => ({
+                background: isActive ? 'var(--color-accent-soft)' : 'transparent',
+                color: isActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                textDecoration: 'none',
+                borderLeft: isActive ? '3px solid var(--color-accent)' : '3px solid transparent',
+              })}
+              title={collapsed ? item.label : undefined}
             >
-              <item.icon size={20} className={collapsed ? "mx-auto" : ""} />
+              <Icon size={18} style={{ flexShrink: 0 }} />
               {!collapsed && <span>{item.label}</span>}
             </NavLink>
-          ))}
-        </nav>
-      </div>
+          );
+        })}
+      </nav>
 
-      <div className="p-4 border-t border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
-          <Settings size={20} />
-          {!collapsed && <span>Settings</span>}
-        </div>
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-red-500 hover:text-red-600">
-          <LogOut size={20} />
-          {!collapsed && <span>Logout</span>}
+      {/* User Footer */}
+      <div
+        style={{
+          borderTop: '1px solid var(--color-border-subtle)',
+          padding: collapsed ? '12px 8px' : '12px 16px',
+        }}
+      >
+        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
+          <Avatar
+            name={user?.name}
+            avatar={user?.avatar}
+            size="md"
+            status={userStatus}
+            showStatus
+          />
+          {!collapsed && (
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user?.name || 'User'}
+              </div>
+              <StatusBadge status={userStatus} showLabel size="sm" />
+            </div>
+          )}
+          {!collapsed && (
+            <div style={{ display: 'flex', gap: 2 }}>
+              <button className="btn-ghost btn-icon" style={{ width: 28, height: 28 }} title="Settings">
+                <Settings size={15} />
+              </button>
+              <button
+                className="btn-ghost btn-icon"
+                style={{ width: 28, height: 28, color: 'var(--color-danger)' }}
+                title="Sign out"
+                onClick={async () => {
+                  await logout();
+                  useStore.getState().setUser(null);
+                }}
+              >
+                <LogOut size={15} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </aside>
