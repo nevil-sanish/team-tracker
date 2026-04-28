@@ -4,13 +4,13 @@ import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAnPFYxa3ApoINSo_TjEbllobpwn2tp2iM",
-  authDomain: "habit-tracker-58305.firebaseapp.com",
-  databaseURL: "https://habit-tracker-58305-default-rtdb.firebaseio.com",
-  projectId: "habit-tracker-58305",
-  storageBucket: "habit-tracker-58305.firebasestorage.app",
-  messagingSenderId: "472706097602",
-  appId: "1:472706097602:web:dc2bc1354d2e6501cff65b"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
