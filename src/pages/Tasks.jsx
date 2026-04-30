@@ -5,12 +5,14 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn, formatRelative, priorityMeta, statusMeta } from '../lib/utils';
+import { saveTask, deleteTask, updateTaskDoc } from '../lib/dataService';
+import { saveActivity } from '../lib/dataService';
 import Avatar from '../components/Avatar';
 
 const COLUMNS = ['todo', 'in_progress', 'review', 'done'];
 
 export default function Tasks() {
-  const { mode, tasks, addTask, removeTask, updateTask, moveTask, user } = useStore();
+  const { activeGroup, tasks, addTask, removeTask, updateTask, moveTask, user, addNotification } = useStore();
   const [view, setView] = useState('kanban');
   const [filterPriority, setFilterPriority] = useState(null);
   const [filterStatus, setFilterStatus] = useState(null);
@@ -18,12 +20,14 @@ export default function Tasks() {
   const [showFilters, setShowFilters] = useState(false);
   const [draggedId, setDraggedId] = useState(null);
 
+  const groupId = activeGroup?.id;
+
   const visible = useMemo(() => {
-    let items = tasks.filter(t => mode === 'personal' ? !t.teamId : t.teamId === 'group');
+    let items = [...tasks];
     if (filterPriority) items = items.filter(t => t.priority === filterPriority);
     if (filterStatus) items = items.filter(t => t.status === filterStatus);
     return items;
-  }, [tasks, mode, filterPriority, filterStatus]);
+  }, [tasks, filterPriority, filterStatus]);
 
   const overdueCount = visible.filter(
     t => t.status !== 'done' && new Date(t.dueDate) < new Date(new Date().toDateString())
@@ -34,12 +38,67 @@ export default function Tasks() {
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDrop = (e, newStatus) => {
+  const handleDrop = async (e, newStatus) => {
     e.preventDefault();
     if (draggedId) {
       moveTask(draggedId, newStatus);
+      if (groupId) {
+        await updateTaskDoc(groupId, draggedId, { status: newStatus });
+      }
       setDraggedId(null);
     }
+  };
+
+  const handleAddTask = async (task) => {
+    const fullTask = {
+      ...task,
+      assignee: user?.name || 'You',
+      updatedBy: user?.name || 'You',
+      comments: 0,
+      attachments: 0,
+    };
+    if (groupId) {
+      const saved = await saveTask(groupId, fullTask);
+      await saveActivity(groupId, {
+        kind: 'task_created',
+        actorName: user?.name || 'You',
+        target: task.title,
+        at: new Date().toISOString(),
+      });
+    } else {
+      addTask(fullTask);
+    }
+    // Notification
+    addNotification({
+      title: 'Task Created',
+      message: `"${task.title}" has been added`,
+      type: 'info',
+      section: 'Tasks',
+    });
+    setShowNewTask(false);
+  };
+
+  const handleRemoveTask = async (id) => {
+    const task = tasks.find(t => t.id === id);
+    if (groupId) {
+      await deleteTask(groupId, id);
+      if (task) {
+        await saveActivity(groupId, {
+          kind: 'task_deleted',
+          actorName: user?.name || 'You',
+          target: task.title,
+          at: new Date().toISOString(),
+        });
+      }
+    } else {
+      removeTask(id);
+    }
+    addNotification({
+      title: 'Task Deleted',
+      message: `"${task?.title || 'A task'}" has been removed`,
+      type: 'alert',
+      section: 'Tasks',
+    });
   };
 
   return (
@@ -126,9 +185,9 @@ export default function Tasks() {
       {/* Views */}
       <div className="flex-1 overflow-hidden" style={{ background: 'var(--color-bg-primary)' }}>
         {view === 'kanban' ? (
-          <KanbanView tasks={visible} onDragStart={handleDragStart} onDrop={handleDrop} onRemove={removeTask} onUpdate={updateTask} />
+          <KanbanView tasks={visible} onDragStart={handleDragStart} onDrop={handleDrop} onRemove={handleRemoveTask} onUpdate={updateTask} />
         ) : (
-          <ListView tasks={visible} onRemove={removeTask} onUpdate={updateTask} />
+          <ListView tasks={visible} onRemove={handleRemoveTask} onUpdate={updateTask} />
         )}
       </div>
 
@@ -136,17 +195,7 @@ export default function Tasks() {
       {showNewTask && (
         <NewTaskModal
           onClose={() => setShowNewTask(false)}
-          onSave={(task) => {
-            addTask({
-              ...task,
-              teamId: mode === 'group' ? 'group' : null,
-              assignee: user?.name || 'You',
-              updatedBy: user?.name || 'You',
-              comments: 0,
-              attachments: 0,
-            });
-            setShowNewTask(false);
-          }}
+          onSave={handleAddTask}
         />
       )}
     </div>

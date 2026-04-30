@@ -7,34 +7,33 @@ import GroupSetup from './components/JoinCreateTeamModal';
 import Login from './pages/Login';
 import { auth } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { subscribeToGroup, leaveGroup as leaveGroupFS, updateMemberStatus } from './lib/groupService';
+import {
+  subscribeTasks, subscribeEvents, subscribeNotes,
+  subscribeNoteFolders, subscribeChannels, subscribeMessages,
+  subscribeActivities, subscribeResources,
+} from './lib/dataService';
 
 // Pages
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import CalendarView from './pages/CalendarView';
 import Notes from './pages/Notes';
-import Chat from './pages/Chat';
-import Calls from './pages/Calls';
+// Chat page removed
+// Calls page removed
 import Activity from './pages/Activity';
-import Analytics from './pages/Analytics';
+// Analytics merged into Activity page
 import ResourceHub from './pages/ResourceHub';
 
-const pageTitles = {
-  '/dashboard': 'Dashboard',
-  '/calendar': 'Calendar',
-  '/tasks': 'Tasks',
-  '/notes': 'Notes',
-  '/chat': 'Chat',
-  '/calls': 'Calls',
-  '/activity': 'Activity',
-  '/analytics': 'Analytics',
-  '/resources': 'Resources',
-};
-
 export default function App() {
-  const { mode, group, user, setUser, showGroupSetup } = useStore();
+  const {
+    user, setUser, activeGroup, setActiveGroup, showGroupSetup,
+    setTasks, setEvents, setNotes, setNoteFolders,
+    setChannels, setMessages, setActivities, setResources, clearGroupData,
+  } = useStore();
   const [loading, setLoading] = useState(true);
 
+  // Auth listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
@@ -47,11 +46,40 @@ export default function App() {
         });
       } else {
         setUser(null);
+        setActiveGroup(null);
+        clearGroupData();
       }
       setLoading(false);
     });
     return () => unsubscribe();
   }, [setUser]);
+
+  // Subscribe to group data when activeGroup changes
+  useEffect(() => {
+    if (!activeGroup?.id) {
+      clearGroupData();
+      return;
+    }
+
+    const gid = activeGroup.id;
+    const unsubs = [
+      subscribeToGroup(gid, (groupData) => {
+        setActiveGroup(groupData);
+      }),
+      subscribeTasks(gid, setTasks),
+      subscribeEvents(gid, setEvents),
+      subscribeNotes(gid, setNotes),
+      subscribeNoteFolders(gid, setNoteFolders),
+      subscribeChannels(gid, setChannels),
+      subscribeMessages(gid, setMessages),
+      subscribeActivities(gid, setActivities),
+      subscribeResources(gid, setResources),
+    ];
+
+    return () => {
+      unsubs.forEach(u => u && u());
+    };
+  }, [activeGroup?.id]);
 
   if (loading) {
     return (
@@ -114,10 +142,10 @@ export default function App() {
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/calendar" element={<CalendarView />} />
               <Route path="/notes" element={<Notes />} />
-              <Route path="/chat" element={<Chat />} />
-              <Route path="/calls" element={<Calls />} />
+
+
               <Route path="/activity" element={<Activity />} />
-              <Route path="/analytics" element={<Analytics />} />
+
               <Route path="/resources" element={<ResourceHub />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>

@@ -1,32 +1,47 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  Calendar, CheckSquare, FileText, MessageSquare,
-  Phone, Activity, BarChart2, Folder,
-  ChevronLeft, ChevronRight, Settings, LogOut, User, Users
+  Calendar, CheckSquare, FileText,
+  Activity, Folder,
+  ChevronLeft, ChevronRight, LogOut, User, Users
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
 import { logout } from '../lib/firebase';
+import { leaveGroup as leaveGroupFS } from '../lib/groupService';
 import Avatar from './Avatar';
 import StatusBadge from './StatusBadge';
 
 const navItems = [
-  { icon: Calendar, label: 'Calendar', path: '/calendar', modes: ['personal', 'group'] },
-  { icon: CheckSquare, label: 'Tasks', path: '/tasks', modes: ['personal', 'group'] },
-  { icon: FileText, label: 'Notes', path: '/notes', modes: ['personal', 'group'] },
-  { icon: MessageSquare, label: 'Chat', path: '/chat', modes: ['personal', 'group'] },
-  { icon: Phone, label: 'Calls', path: '/calls', modes: ['personal', 'group'] },
-  { icon: Activity, label: 'Activity', path: '/activity', modes: ['group'] },
-  { icon: BarChart2, label: 'Analytics', path: '/analytics', modes: ['group'] },
-  { icon: Folder, label: 'Resources', path: '/resources', modes: ['group'] },
+  { icon: Calendar, label: 'Calendar', path: '/calendar', requiresGroup: false },
+  { icon: CheckSquare, label: 'Tasks', path: '/tasks', requiresGroup: false },
+  { icon: FileText, label: 'Notes', path: '/notes', requiresGroup: false },
+  { icon: Activity, label: 'Activity', path: '/activity', requiresGroup: true },
+  { icon: Folder, label: 'Resources', path: '/resources', requiresGroup: true },
 ];
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const { mode, toggleMode, user, userStatus, group, exitGroup, setShowGroupSetup } = useStore();
+  const { activeGroup, user, userStatus, setActiveGroup, setShowGroupSetup, clearGroupData } = useStore();
 
-  const visibleItems = navItems.filter(item => item.modes.includes(mode));
+  const inGroup = !!activeGroup;
+  const visibleItems = navItems.filter(item => !item.requiresGroup || inGroup);
+
+  const handleLeaveGroup = async () => {
+    if (activeGroup && user) {
+      try {
+        await leaveGroupFS(activeGroup.id, user.id);
+      } catch (err) {
+        console.error('Failed to leave group', err);
+      }
+    }
+    clearGroupData();
+    setActiveGroup(null);
+  };
+
+  const handleSwitchGroup = () => {
+    setShowGroupSetup(true);
+  };
 
   return (
     <aside
@@ -82,76 +97,117 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Mode Toggle */}
+      {/* Group / Personal toggle area */}
       <div className={cn("p-3", collapsed && "px-2")}>
         {!collapsed ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: 3,
-              background: 'var(--color-bg-tertiary)',
-              borderRadius: 10,
-              cursor: 'pointer',
-              position: 'relative',
-            }}
-            onClick={toggleMode}
-          >
-            <div
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Group join/switch button */}
+            <button
+              onClick={handleSwitchGroup}
               style={{
-                position: 'absolute',
-                top: 3,
-                bottom: 3,
-                width: 'calc(50% - 3px)',
-                background: 'var(--color-bg-elevated)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                width: '100%',
+                padding: '8px 10px',
+                background: inGroup ? 'var(--color-accent-soft)' : 'var(--color-bg-tertiary)',
+                border: inGroup ? '1px solid rgba(108,92,231,0.2)' : '1px solid var(--color-border-default)',
+                borderRadius: 10,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                textAlign: 'left',
+              }}
+              className="hover:bg-[var(--color-bg-hover)]"
+            >
+              <div style={{
+                width: 30,
+                height: 30,
                 borderRadius: 8,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                left: mode === 'personal' ? 3 : 'calc(50%)',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-              }}
-            />
-            <div
-              style={{
-                flex: 1,
+                background: inGroup
+                  ? 'linear-gradient(135deg, var(--color-accent), var(--color-accent-hover))'
+                  : 'var(--color-bg-hover)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 6,
-                padding: '7px 0',
-                fontSize: 12,
-                fontWeight: 600,
-                position: 'relative',
-                zIndex: 1,
-                color: mode === 'personal' ? 'var(--color-accent)' : 'var(--color-text-muted)',
-                transition: 'color 0.2s',
-              }}
-            >
-              <User size={14} />
-              <span>Personal</span>
-            </div>
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                padding: '7px 0',
-                fontSize: 12,
-                fontWeight: 600,
-                position: 'relative',
-                zIndex: 1,
-                color: mode === 'group' ? 'var(--color-accent)' : 'var(--color-text-muted)',
-                transition: 'color 0.2s',
-              }}
-            >
-              <Users size={14} />
-              <span>Group</span>
-            </div>
+                color: inGroup ? 'white' : 'var(--color-text-muted)',
+                fontWeight: 700,
+                fontSize: 13,
+                flexShrink: 0,
+              }}>
+                {inGroup ? activeGroup.name.charAt(0).toUpperCase() : <Users size={14} />}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {inGroup ? activeGroup.name : 'No Group'}
+                </p>
+                <p style={{ fontSize: 9, color: 'var(--color-text-muted)' }}>
+                  {inGroup
+                    ? `${(activeGroup.members || []).length} member${(activeGroup.members || []).length !== 1 ? 's' : ''}`
+                    : 'Join or create a group'}
+                </p>
+              </div>
+              <ChevronRight size={13} style={{ color: 'var(--color-text-disabled)', flexShrink: 0 }} />
+            </button>
+
+            {/* Group Info & Actions */}
+            {inGroup && (
+              <div style={{
+                padding: '8px 10px',
+                borderRadius: 8,
+                background: 'var(--color-bg-tertiary)',
+                border: '1px solid var(--color-border-subtle)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)' }}>
+                    Members
+                  </span>
+                  <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
+                    {(activeGroup.members || []).length}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 80, overflowY: 'auto' }}>
+                  {(activeGroup.members || []).map(m => (
+                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{
+                        width: 6, height: 6, borderRadius: '50%',
+                        background: m.status === 'online' ? 'var(--color-status-online)' : 'var(--color-status-offline)',
+                        flexShrink: 0,
+                      }} />
+                      <span style={{
+                        fontSize: 11,
+                        color: m.id === user?.id ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                        fontWeight: m.id === user?.id ? 600 : 400,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {m.name}{m.id === user?.id ? ' (you)' : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <button
+                    onClick={handleSwitchGroup}
+                    className="btn-sm btn-secondary"
+                    style={{ flex: 1, fontSize: 10, padding: '4px 8px' }}
+                  >
+                    Switch
+                  </button>
+                  <button
+                    onClick={handleLeaveGroup}
+                    className="btn-sm btn-danger"
+                    style={{ flex: 1, fontSize: 10, padding: '4px 8px' }}
+                  >
+                    Leave
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <button
-            onClick={toggleMode}
+            onClick={handleSwitchGroup}
             className="btn-ghost"
             style={{
               width: '100%',
@@ -161,44 +217,41 @@ export function Sidebar() {
               alignItems: 'center',
               justifyContent: 'center',
             }}
-            title={mode === 'personal' ? 'Switch to Group' : 'Switch to Personal'}
+            title={inGroup ? activeGroup.name : 'Join a Group'}
           >
-            {mode === 'personal' ? <User size={16} /> : <Users size={16} />}
+            {inGroup ? (
+              <div style={{
+                width: 24,
+                height: 24,
+                borderRadius: 6,
+                background: 'linear-gradient(135deg, var(--color-accent), var(--color-accent-hover))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: 11,
+                fontWeight: 700,
+              }}>
+                {activeGroup.name.charAt(0).toUpperCase()}
+              </div>
+            ) : (
+              <Users size={16} />
+            )}
           </button>
-        )}
-
-        {/* Group Info */}
-        {mode === 'group' && group && !collapsed && (
-          <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'var(--color-accent-soft)', border: '1px solid rgba(108,92,231,0.15)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-accent)' }}>Active Group</span>
-            </div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 2 }}>{group.name}</p>
-            <p style={{ fontSize: 10, color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-              PW: {group.password || 'None'}
-            </p>
-            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-              <button
-                onClick={() => setShowGroupSetup(true)}
-                className="btn-sm btn-secondary"
-                style={{ flex: 1, fontSize: 10, padding: '4px 8px' }}
-              >
-                Switch
-              </button>
-              <button
-                onClick={exitGroup}
-                className="btn-sm btn-danger"
-                style={{ flex: 1, fontSize: 10, padding: '4px 8px' }}
-              >
-                Exit
-              </button>
-            </div>
-          </div>
         )}
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 space-y-0.5" style={{ paddingBottom: 16 }}>
+        {/* Personal section label */}
+        {!collapsed && (
+          <div style={{ padding: '6px 12px 4px', marginTop: 4 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--color-text-disabled)' }}>
+              {inGroup ? 'Workspace' : 'Personal'}
+            </span>
+          </div>
+        )}
+
         {visibleItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -250,22 +303,27 @@ export function Sidebar() {
             </div>
           )}
           {!collapsed && (
-            <div style={{ display: 'flex', gap: 2 }}>
-              <button className="btn-ghost btn-icon" style={{ width: 28, height: 28 }} title="Settings">
-                <Settings size={15} />
-              </button>
-              <button
-                className="btn-ghost btn-icon"
-                style={{ width: 28, height: 28, color: 'var(--color-danger)' }}
-                title="Sign out"
-                onClick={async () => {
-                  await logout();
-                  useStore.getState().setUser(null);
-                }}
-              >
-                <LogOut size={15} />
-              </button>
-            </div>
+            <button
+              className="btn-ghost btn-icon"
+              style={{ width: 28, height: 28, color: 'var(--color-danger)' }}
+              title="Sign out"
+              onClick={async () => {
+                // Leave current group if any
+                if (activeGroup && user) {
+                  try {
+                    await leaveGroupFS(activeGroup.id, user.id);
+                  } catch (err) {
+                    console.error(err);
+                  }
+                }
+                await logout();
+                useStore.getState().clearGroupData();
+                useStore.getState().setActiveGroup(null);
+                useStore.getState().setUser(null);
+              }}
+            >
+              <LogOut size={15} />
+            </button>
           )}
         </div>
       </div>

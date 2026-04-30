@@ -2,8 +2,8 @@
 
 @import "tailwindcss";
 
-@theme {
-  /* ── Core palette ── */
+/* ── Dark Theme (default) ── */
+:root {
   --color-bg-primary: #0a0a0f;
   --color-bg-secondary: #12121a;
   --color-bg-tertiary: #1a1a26;
@@ -20,35 +20,106 @@
   --color-text-muted: #6a6a82;
   --color-text-disabled: #4a4a5e;
 
-  /* ── Accent colors ── */
-  --color-accent: #6c5ce7;
-  --color-accent-soft: rgba(108, 92, 231, 0.12);
-  --color-accent-medium: rgba(108, 92, 231, 0.25);
-  --color-accent-hover: #7c6ff0;
+  /* ── Orange Accent ── */
+  --color-accent: #f97316;
+  --color-accent-soft: rgba(249, 115, 22, 0.12);
+  --color-accent-medium: rgba(249, 115, 22, 0.25);
+  --color-accent-hover: #fb923c;
 
-  --color-success: #00b894;
-  --color-success-soft: rgba(0, 184, 148, 0.12);
-  --color-warning: #fdcb6e;
-  --color-warning-soft: rgba(253, 203, 110, 0.12);
-  --color-danger: #e17055;
-  --color-danger-soft: rgba(225, 112, 85, 0.12);
-  --color-info: #74b9ff;
-  --color-info-soft: rgba(116, 185, 255, 0.12);
+  --color-success: #22c55e;
+  --color-success-soft: rgba(34, 197, 94, 0.12);
+  --color-warning: #eab308;
+  --color-warning-soft: rgba(234, 179, 8, 0.12);
+  --color-danger: #ef4444;
+  --color-danger-soft: rgba(239, 68, 68, 0.12);
+  --color-info: #3b82f6;
+  --color-info-soft: rgba(59, 130, 246, 0.12);
 
   /* ── Status colors ── */
-  --color-status-online: #00b894;
-  --color-status-busy: #e17055;
-  --color-status-call: #fdcb6e;
-  --color-status-focus: #6c5ce7;
+  --color-status-online: #22c55e;
+  --color-status-busy: #ef4444;
+  --color-status-call: #eab308;
+  --color-status-focus: #f97316;
   --color-status-offline: #4a4a5e;
 
   /* ── Priority colors ── */
   --color-priority-low: #636e72;
-  --color-priority-medium: #00b894;
-  --color-priority-high: #fdcb6e;
-  --color-priority-critical: #e17055;
+  --color-priority-medium: #22c55e;
+  --color-priority-high: #eab308;
+  --color-priority-critical: #ef4444;
 
   /* ── Typography ── */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+}
+
+/* ── Light Theme ── */
+[data-theme="light"] {
+  --color-bg-primary: #f8f9fa;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f1f3f5;
+  --color-bg-elevated: #ffffff;
+  --color-bg-hover: #e9ecef;
+  --color-bg-active: #dee2e6;
+
+  --color-border-default: #dee2e6;
+  --color-border-subtle: #e9ecef;
+  --color-border-strong: #ced4da;
+
+  --color-text-primary: #1a1a2e;
+  --color-text-secondary: #495057;
+  --color-text-muted: #868e96;
+  --color-text-disabled: #adb5bd;
+
+  --color-accent: #ea580c;
+  --color-accent-soft: rgba(234, 88, 12, 0.1);
+  --color-accent-medium: rgba(234, 88, 12, 0.2);
+  --color-accent-hover: #f97316;
+}
+
+@theme {
+  /* ── Core palette ── */
+  --color-bg-primary: var(--color-bg-primary);
+  --color-bg-secondary: var(--color-bg-secondary);
+  --color-bg-tertiary: var(--color-bg-tertiary);
+  --color-bg-elevated: var(--color-bg-elevated);
+  --color-bg-hover: var(--color-bg-hover);
+  --color-bg-active: var(--color-bg-active);
+
+  --color-border-default: var(--color-border-default);
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border-strong: var(--color-border-strong);
+
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-disabled: var(--color-text-disabled);
+
+  --color-accent: var(--color-accent);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-accent-medium: var(--color-accent-medium);
+  --color-accent-hover: var(--color-accent-hover);
+
+  --color-success: var(--color-success);
+  --color-success-soft: var(--color-success-soft);
+  --color-warning: var(--color-warning);
+  --color-warning-soft: var(--color-warning-soft);
+  --color-danger: var(--color-danger);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-info: var(--color-info);
+  --color-info-soft: var(--color-info-soft);
+
+  --color-status-online: var(--color-status-online);
+  --color-status-busy: var(--color-status-busy);
+  --color-status-call: var(--color-status-call);
+  --color-status-focus: var(--color-status-focus);
+  --color-status-offline: var(--color-status-offline);
+
+  --color-priority-low: var(--color-priority-low);
+  --color-priority-medium: var(--color-priority-medium);
+  --color-priority-high: var(--color-priority-high);
+  --color-priority-critical: var(--color-priority-critical);
+
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
 }
@@ -73,6 +144,7 @@
     color: var(--color-text-primary);
     line-height: 1.5;
     overflow: hidden;
+    transition: background 0.3s ease, color 0.3s ease;
   }
 
   /* Scrollbar styling */
@@ -137,17 +209,27 @@
   100% { background-position: 200% 0; }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .animate-fade-in { animation: fadeIn 0.3s ease-out; }
 .animate-slide-in { animation: slideIn 0.25s ease-out; }
 .animate-slide-up { animation: slideUp 0.3s ease-out; }
 .animate-scale-in { animation: scaleIn 0.2s ease-out; }
 .animate-pulse-soft { animation: pulse-soft 2s infinite; }
+.animate-spin { animation: spin 1s linear infinite; }
 
 /* ── Glass effect ── */
 .glass {
   background: rgba(18, 18, 26, 0.8);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+[data-theme="light"] .glass {
+  background: rgba(255, 255, 255, 0.85);
 }
 
 /* ── Card styles ── */
@@ -161,6 +243,10 @@
 .card:hover {
   border-color: var(--color-border-strong);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .card:hover {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
 }
 
 .card-flat {
@@ -198,7 +284,7 @@
 }
 .btn-primary:hover {
   background: var(--color-accent-hover);
-  box-shadow: 0 0 20px rgba(108, 92, 231, 0.3);
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.3);
 }
 
 .btn-secondary {
@@ -224,10 +310,10 @@
 .btn-danger {
   background: var(--color-danger-soft);
   color: var(--color-danger);
-  border-color: rgba(225, 112, 85, 0.2);
+  border-color: rgba(239, 68, 68, 0.2);
 }
 .btn-danger:hover {
-  background: rgba(225, 112, 85, 0.2);
+  background: rgba(239, 68, 68, 0.2);
 }
 
 .btn-sm {
@@ -319,6 +405,10 @@
   animation: fadeIn 0.15s ease-out;
 }
 
+[data-theme="light"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.3);
+}
+
 .modal-content {
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border-default);
@@ -330,6 +420,10 @@
   overflow-y: auto;
   animation: scaleIn 0.2s ease-out;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .modal-content {
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.15);
 }
 
 /* ── Tab group ── */
@@ -364,6 +458,10 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
+[data-theme="light"] .tab-item.active {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
 /* ── Dropdown ── */
 .dropdown-content {
   background: var(--color-bg-elevated);
@@ -374,6 +472,10 @@
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
   animation: scaleIn 0.15s ease-out;
   z-index: 50;
+}
+
+[data-theme="light"] .dropdown-content {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
 }
 
 .dropdown-item {

@@ -1,28 +1,25 @@
 import React, { useMemo } from 'react';
-import { Calendar, CheckSquare, FileText, MessageSquare, Clock, AlertCircle, TrendingUp, Activity } from 'lucide-react';
+import { Calendar, CheckSquare, FileText, MessageSquare, Clock, AlertCircle, TrendingUp, Activity, Users } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn, toDateKey, formatRelative, statusMeta, priorityMeta } from '../lib/utils';
 import { NavLink } from 'react-router-dom';
 
 export default function Dashboard() {
-  const { mode, group, user, events, tasks, notes, activities } = useStore();
+  const { activeGroup, user, events, tasks, notes, activities } = useStore();
 
-  const filteredTasks = useMemo(() =>
-    tasks.filter(t => mode === 'personal' ? !t.teamId : t.teamId === 'group'),
-    [tasks, mode]
-  );
+  const inGroup = !!activeGroup;
 
   const todayEvents = useMemo(() => {
     const today = toDateKey(new Date());
-    return events.filter(e => e.date === today && (mode === 'personal' ? !e.teamId : e.teamId === 'group'));
-  }, [events, mode]);
+    return events.filter(e => e.date === today);
+  }, [events]);
 
-  const overdueCount = filteredTasks.filter(
+  const overdueCount = tasks.filter(
     t => t.status !== 'done' && new Date(t.dueDate) < new Date(new Date().toDateString())
   ).length;
 
-  const completedCount = filteredTasks.filter(t => t.status === 'done').length;
-  const inProgressCount = filteredTasks.filter(t => t.status === 'in_progress').length;
+  const completedCount = tasks.filter(t => t.status === 'done').length;
+  const inProgressCount = tasks.filter(t => t.status === 'in_progress').length;
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -40,9 +37,9 @@ export default function Dashboard() {
             {greeting()}, {user?.name?.split(' ')[0] || 'there'} 👋
           </h1>
           <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 4 }}>
-            {mode === 'personal'
-              ? 'Here\'s your personal dashboard.'
-              : `Working in ${group?.name || 'Group'} · Team dashboard`}
+            {inGroup
+              ? <>{activeGroup.name} · <Users size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> {(activeGroup.members || []).length} members</>
+              : 'Your personal workspace — join a group to collaborate!'}
           </p>
         </div>
 
@@ -116,13 +113,13 @@ export default function Dashboard() {
                 View All →
               </NavLink>
             </div>
-            {filteredTasks.length === 0 ? (
+            {tasks.length === 0 ? (
               <p style={{ fontSize: 12, color: 'var(--color-text-muted)', fontStyle: 'italic', padding: 16, textAlign: 'center' }}>
                 No tasks yet.
               </p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {filteredTasks.slice(0, 5).map(t => {
+                {tasks.slice(0, 5).map(t => {
                   const pMeta = priorityMeta[t.priority] || priorityMeta.medium;
                   const overdue = t.status !== 'done' && new Date(t.dueDate) < new Date(new Date().toDateString());
                   return (
