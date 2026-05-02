@@ -47,9 +47,9 @@ export const statusMeta = {
 };
 
 export const presenceMeta = {
-  online: { label: 'Online', color: 'var(--color-status-online)' },
-  busy: { label: 'Busy', color: 'var(--color-status-busy)' },
-  call: { label: 'In a call', color: 'var(--color-status-call)' },
-  focus: { label: 'Focus Mode', color: 'var(--color-status-focus)' },
-  offline: { label: 'Offline', color: 'var(--color-status-offline)' },
+  online: { label: 'Online', color: 'var(--color-status-online)', icon: '🟢' },
+  busy: { label: 'Busy', color: 'var(--color-status-busy)', icon: '🔴' },
+  focus: { label: 'Focus Mode', color: 'var(--color-status-focus)', icon: '🎯' },
+  sleeping: { label: 'Sleeping', color: 'var(--color-status-call)', icon: '😴' },
+  offline: { label: 'Offline', color: 'var(--color-status-offline)', icon: '⚫' },
 };

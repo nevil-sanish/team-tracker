@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Users, LogIn, Plus, X, RefreshCw, Shield, Loader2, Crown } from 'lucide-react';
+import { Users, LogIn, Plus, X, RefreshCw, Shield, Loader2, Crown, Trash2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { createGroup, joinGroup, fetchAllGroups } from '../lib/groupService';
+import { createGroup, joinGroup, fetchAllGroups, deleteGroup, isAdmin } from '../lib/groupService';
 import { initGroupDefaults } from '../lib/dataService';
 import Avatar from './Avatar';
 
@@ -75,6 +75,24 @@ export default function GroupSetup() {
 
   const handleClose = () => {
     setShowGroupSetup(false);
+  };
+
+  const handleDeleteGroup = async (groupId, groupName) => {
+    if (!isAdmin(user)) return;
+    if (!confirm(`Are you sure you want to permanently delete "${groupName}"? This cannot be undone.`)) return;
+    setLoading(true);
+    try {
+      await deleteGroup(groupId);
+      await loadGroups();
+      // If the deleted group was active, clear it
+      if (useStore.getState().activeGroup?.id === groupId) {
+        useStore.getState().setActiveGroup(null);
+        useStore.getState().clearGroupData();
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to delete group');
+    }
+    setLoading(false);
   };
 
   return (
@@ -259,7 +277,18 @@ export default function GroupSetup() {
                         </span>
                       </div>
                     </div>
-                    <Shield size={13} style={{ color: 'var(--color-text-disabled)', flexShrink: 0 }} />
+                    {isAdmin(user) ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g.id, g.name); }}
+                        className="btn-ghost btn-icon"
+                        style={{ width: 28, height: 28, color: 'var(--color-danger)', flexShrink: 0 }}
+                        title="Delete group (Admin)"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    ) : (
+                      <Shield size={13} style={{ color: 'var(--color-text-disabled)', flexShrink: 0 }} />
+                    )}
                   </button>
                 ))}
               </div>

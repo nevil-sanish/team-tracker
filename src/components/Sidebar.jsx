@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  Calendar, CheckSquare, FileText,
+  LayoutDashboard, Calendar, CheckSquare, FileText,
   Activity, Folder,
   ChevronLeft, ChevronRight, LogOut, User, Users
 } from 'lucide-react';
@@ -13,6 +13,7 @@ import Avatar from './Avatar';
 import StatusBadge from './StatusBadge';
 
 const navItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', requiresGroup: false },
   { icon: Calendar, label: 'Calendar', path: '/calendar', requiresGroup: false },
   { icon: CheckSquare, label: 'Tasks', path: '/tasks', requiresGroup: false },
   { icon: FileText, label: 'Notes', path: '/notes', requiresGroup: false },

@@ -1,11 +1,21 @@
 import {
   collection, doc, setDoc, getDoc, getDocs, updateDoc,
-  arrayUnion, arrayRemove, query, where, onSnapshot, deleteField
+  deleteDoc, query, where, onSnapshot
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { generateId } from './utils';
 
 const GROUPS_COL = 'groups';
+
+/** Admin email with full group delete powers */
+export const ADMIN_EMAIL = 'nevilsanish@gmail.com';
+
+/**
+ * Check if a user is admin.
+ */
+export function isAdmin(user) {
+  return user?.email === ADMIN_EMAIL;
+}
 
 /**
  * Create a new group in Firestore.
@@ -36,6 +46,9 @@ export async function createGroup(name, password, user) {
 /**
  * Join an existing group by name + password.
  * Returns the group object if credentials match, or throws an error.
+ *
+ * FIX: Uses direct array write instead of arrayUnion to avoid
+ * deduplication issues with complex objects.
  */
 export async function joinGroup(name, password, user) {
   const q = query(collection(db, GROUPS_COL), where('name', '==', name));
@@ -46,16 +59,25 @@ export async function joinGroup(name, password, user) {
   }
 
   const groupDoc = snap.docs[0];
-  const groupData = groupDoc.data();
+  const groupRef = doc(db, GROUPS_COL, groupDoc.id);
+
+  // Re-read latest data to avoid stale member lists
+  const freshSnap = await getDoc(groupRef);
+  const groupData = freshSnap.data();
 
   if (groupData.password !== password) {
     throw new Error('Incorrect password. Please try again.');
   }
 
-  // Check if user is already a member
-  const alreadyMember = (groupData.members || []).some(m => m.id === user.id);
-  if (!alreadyMember) {
-    const member = {
+  const currentMembers = groupData.members || [];
+
+  // Check if user is already a member (by id)
+  const existingIndex = currentMembers.findIndex(m => m.id === user.id);
+
+  let updatedMembers;
+  if (existingIndex === -1) {
+    // New member — append to array
+    const newMember = {
       id: user.id,
       name: user.name,
       email: user.email,
@@ -63,22 +85,20 @@ export async function joinGroup(name, password, user) {
       status: 'online',
       joinedAt: new Date().toISOString(),
     };
-    await updateDoc(doc(db, GROUPS_COL, groupData.id), {
-      members: arrayUnion(member),
-    });
-    groupData.members = [...(groupData.members || []), member];
+    updatedMembers = [...currentMembers, newMember];
   } else {
-    // Update status to online
-    const updatedMembers = groupData.members.map(m =>
-      m.id === user.id ? { ...m, status: 'online' } : m
+    // Existing member — update status to online and refresh profile data
+    updatedMembers = currentMembers.map(m =>
+      m.id === user.id
+        ? { ...m, name: user.name, email: user.email, avatar: user.avatar || null, status: 'online' }
+        : m
     );
-    await updateDoc(doc(db, GROUPS_COL, groupData.id), {
-      members: updatedMembers,
-    });
-    groupData.members = updatedMembers;
   }
 
-  return groupData;
+  // Write the full array directly (not arrayUnion)
+  await updateDoc(groupRef, { members: updatedMembers });
+
+  return { ...groupData, members: updatedMembers };
 }
 
 /**
@@ -92,6 +112,15 @@ export async function leaveGroup(groupId, userId) {
   const data = snap.data();
   const updatedMembers = (data.members || []).filter(m => m.id !== userId);
   await updateDoc(groupRef, { members: updatedMembers });
+}
+
+/**
+ * Delete a group entirely (admin only).
+ * Deletes the group document. Sub-collections (tasks, events, etc.)
+ * will become orphaned but won't be accessible anymore.
+ */
+export async function deleteGroup(groupId) {
+  await deleteDoc(doc(db, GROUPS_COL, groupId));
 }
 
 /**
@@ -111,7 +140,7 @@ export async function updateMemberStatus(groupId, userId, status) {
 
 /**
  * Fetch all available groups (for browsing).
- * Returns an array of { id, name, memberCount, createdAt }.
+ * Returns an array of { id, name, memberCount, members, createdBy, createdAt }.
  */
 export async function fetchAllGroups() {
   const snap = await getDocs(collection(db, GROUPS_COL));
@@ -122,6 +151,7 @@ export async function fetchAllGroups() {
       name: data.name,
       memberCount: (data.members || []).length,
       members: data.members || [],
+      createdBy: data.createdBy,
       createdAt: data.createdAt,
     };
   });

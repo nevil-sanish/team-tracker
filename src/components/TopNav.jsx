@@ -125,18 +125,10 @@ export function TopBar({ title, subtitle, actions }) {
           <button
             onClick={() => setShowStatus(!showStatus)}
             className="btn-ghost btn-icon"
-            style={{ width: 32, height: 32, position: 'relative' }}
+            style={{ width: 32, height: 32, position: 'relative', fontSize: 16 }}
             title="Set status"
           >
-            <div
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                background: presenceMeta[userStatus]?.color || 'var(--color-status-online)',
-                boxShadow: `0 0 6px ${presenceMeta[userStatus]?.color || 'var(--color-status-online)'}`,
-              }}
-            />
+            {presenceMeta[userStatus]?.icon || '🟢'}
           </button>
           {showStatus && (
             <div className="dropdown-content animate-scale-in" style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, minWidth: 160, zIndex: 50 }}>
@@ -151,7 +143,7 @@ export function TopBar({ title, subtitle, actions }) {
                   onClick={() => { setUserStatus(key); setShowStatus(false); }}
                   style={{ fontWeight: userStatus === key ? 600 : 400, color: userStatus === key ? 'var(--color-text-primary)' : undefined }}
                 >
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 14, flexShrink: 0 }}>{meta.icon}</span>
                   {meta.label}
                 </button>
               ))}
