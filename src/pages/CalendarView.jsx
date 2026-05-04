@@ -60,7 +60,34 @@ export default function CalendarView() {
 
   const miniDays = useMemo(() => buildMiniMonth(cursor), [cursor]);
   const monthDays = useMemo(() => buildMonth(cursor), [cursor]);
-  const byDay = useMemo(() => { const m = {}; filteredEvents.forEach(e => (m[e.date] ||= []).push(e)); return m; }, [filteredEvents]);
+
+  // Expand recurring events across all visible days
+  const byDay = useMemo(() => {
+    const m = {};
+    const firstDay = monthDays[0]?.date;
+    const lastDay = monthDays[monthDays.length - 1]?.date;
+    filteredEvents.forEach(e => {
+      // Always add on original date
+      (m[e.date] ||= []).push(e);
+      // Expand recurrence
+      if (e.recurrence && e.recurrence !== 'none' && firstDay && lastDay) {
+        const baseDate = new Date(e.date + 'T00:00:00');
+        let d = new Date(baseDate);
+        for (let i = 0; i < 90; i++) {
+          if (e.recurrence === 'daily') d.setDate(d.getDate() + 1);
+          else if (e.recurrence === 'weekly') d.setDate(d.getDate() + 7);
+          else if (e.recurrence === 'monthly') { d.setMonth(d.getMonth() + 1); }
+          else break;
+          if (d > lastDay) break;
+          if (d >= firstDay) {
+            const key = toDateKey(d);
+            if (key !== e.date) (m[key] ||= []).push({ ...e, _recurring: true });
+          }
+        }
+      }
+    });
+    return m;
+  }, [filteredEvents, monthDays]);
   const todayKey = toDateKey(new Date());
 
   const addSection = () => {

@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
-import { Calendar, CheckSquare, Clock, Users, Sparkles, ArrowRight } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Calendar, CheckSquare, Clock, Users, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn, toDateKey, formatRelative, statusMeta, priorityMeta } from '../lib/utils';
 import { NavLink } from 'react-router-dom';
+import { getSummary } from '../lib/groqService';
 
 export default function Dashboard() {
   const { activeGroup, user, events, tasks } = useStore();
@@ -24,18 +25,25 @@ export default function Dashboard() {
     return 'Good evening';
   };
 
-  const summaryText = useMemo(() => {
-    const lines = [];
-    if (todayEvents.length > 0) {
-      lines.push(`📅 You have ${todayEvents.length} event${todayEvents.length > 1 ? 's' : ''} today:`);
-      todayEvents.slice(0, 2).forEach((e, i) => lines.push(`   ${i + 1}. ${e.title} (${e.startTime} – ${e.endTime})`));
-    } else lines.push('📅 No events scheduled for today.');
-    if (uncompletedTasks.length > 0) {
-      lines.push(`✅ ${uncompletedTasks.length} task${uncompletedTasks.length > 1 ? 's' : ''} pending`);
-    } else lines.push('✅ All tasks are done! Great job 🎉');
-    lines.push('💡 Focus on your highest priority tasks first, and check your calendar before starting.');
-    return lines.join('\n');
-  }, [todayEvents, uncompletedTasks]);
+  // AI Summary
+  const [aiSummary, setAiSummary] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSummary = async () => {
+      setAiLoading(true);
+      try {
+        const result = await getSummary(todayEvents, uncompletedTasks);
+        if (!cancelled) setAiSummary(result);
+      } catch {
+        if (!cancelled) setAiSummary('• Check your calendar and tasks for today.\n• Focus on high priority items first.');
+      }
+      if (!cancelled) setAiLoading(false);
+    };
+    fetchSummary();
+    return () => { cancelled = true; };
+  }, [todayEvents.length, uncompletedTasks.length]);
 
   return (
     <div className="h-full flex flex-col animate-fade-in" style={{ padding: '14px 20px', overflow: 'hidden' }}>
@@ -78,10 +86,11 @@ export default function Dashboard() {
         <div className="card" style={{ padding: '10px 16px', borderLeft: '3px solid var(--color-accent)', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             <Sparkles size={13} style={{ color: 'var(--color-accent)' }} />
-            <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)' }}>Today's Summary</h3>
+            <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)' }}>AI Summary</h3>
+            {aiLoading && <Loader2 size={12} style={{ color: 'var(--color-accent)', animation: 'spin 1s linear infinite' }} />}
           </div>
           <pre style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)', whiteSpace: 'pre-wrap', margin: 0 }}>
-            {summaryText}
+            {aiLoading ? 'Generating summary...' : aiSummary}
           </pre>
         </div>
 

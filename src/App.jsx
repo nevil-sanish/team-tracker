@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import AiChat from './components/AiChat';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopNav';
@@ -222,6 +223,7 @@ export default function App() {
       </div>
 
       {showGroupSetup && <GroupSetup />}
+      <AiChat />
     </BrowserRouter>
   );
 }
