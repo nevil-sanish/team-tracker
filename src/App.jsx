@@ -7,7 +7,7 @@ import GroupSetup from './components/JoinCreateTeamModal';
 import Login from './pages/Login';
 import { auth } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { subscribeToGroup, leaveGroup as leaveGroupFS, updateMemberStatus } from './lib/groupService';
+import { subscribeToGroup, leaveGroup as leaveGroupFS, updateMemberStatus, getUserGroups } from './lib/groupService';
 import {
   subscribeTasks, subscribeEvents, subscribeNotes,
   subscribeNoteFolders, subscribeChannels, subscribeMessages,
@@ -19,8 +19,7 @@ import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import CalendarView from './pages/CalendarView';
 import Notes from './pages/Notes';
-// Chat page removed
-// Calls page removed
+import Chat from './pages/Chat';
 import Activity from './pages/Activity';
 // Analytics merged into Activity page
 import ResourceHub from './pages/ResourceHub';
@@ -28,22 +27,40 @@ import ResourceHub from './pages/ResourceHub';
 export default function App() {
   const {
     user, setUser, activeGroup, setActiveGroup, showGroupSetup,
-    setTasks, setEvents, setNotes, setNoteFolders,
+    setMode, setTasks, setEvents, setNotes, setNoteFolders,
     setChannels, setMessages, setActivities, setResources, clearGroupData,
   } = useStore();
   const [loading, setLoading] = useState(true);
 
-  // Auth listener
+  // Auth listener — auto-restore group membership on login
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        setUser({
+        const userData = {
           id: firebaseUser.uid,
           name: firebaseUser.displayName || 'User',
           email: firebaseUser.email,
           avatar: firebaseUser.photoURL || null,
           status: 'online'
-        });
+        };
+        setUser(userData);
+
+        // Auto-restore: check if user belongs to any groups
+        try {
+          const lastGroupId = localStorage.getItem(`lastGroup_${firebaseUser.uid}`);
+          const userGroups = await getUserGroups(firebaseUser.uid);
+
+          if (userGroups.length > 0) {
+            // Prefer the last active group, otherwise pick the first
+            const preferred = lastGroupId
+              ? userGroups.find(g => g.id === lastGroupId) || userGroups[0]
+              : userGroups[0];
+            setActiveGroup(preferred);
+            setMode('group');
+          }
+        } catch (err) {
+          console.error('Failed to restore groups:', err);
+        }
       } else {
         setUser(null);
         setActiveGroup(null);
@@ -62,6 +79,12 @@ export default function App() {
     }
 
     const gid = activeGroup.id;
+
+    // Persist last active group for this user
+    if (user?.id) {
+      localStorage.setItem(`lastGroup_${user.id}`, gid);
+    }
+
     const unsubs = [
       subscribeToGroup(gid, (groupData) => {
         setActiveGroup(groupData);
@@ -142,8 +165,7 @@ export default function App() {
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/calendar" element={<CalendarView />} />
               <Route path="/notes" element={<Notes />} />
-
-
+              <Route path="/chat" element={<Chat />} />
               <Route path="/activity" element={<Activity />} />
 
               <Route path="/resources" element={<ResourceHub />} />

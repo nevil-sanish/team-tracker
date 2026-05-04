@@ -6,6 +6,10 @@ export const useStore = create((set, get) => ({
   user: null,
   setUser: (user) => set({ user }),
 
+  // ── Mode: 'personal' or 'group' ──
+  mode: 'personal',
+  setMode: (mode) => set({ mode }),
+
   // ── Active Group ──
   // { id, name, password, members: [], createdBy, createdAt }
   activeGroup: null,

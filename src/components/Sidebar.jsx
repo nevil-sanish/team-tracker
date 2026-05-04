@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, CheckSquare, FileText,
-  Activity, Folder,
+  Activity, Folder, MessageSquare,
   ChevronLeft, ChevronRight, LogOut, User, Users
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -12,21 +12,31 @@ import { leaveGroup as leaveGroupFS } from '../lib/groupService';
 import Avatar from './Avatar';
 import StatusBadge from './StatusBadge';
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', requiresGroup: false },
-  { icon: Calendar, label: 'Calendar', path: '/calendar', requiresGroup: false },
-  { icon: CheckSquare, label: 'Tasks', path: '/tasks', requiresGroup: false },
-  { icon: FileText, label: 'Notes', path: '/notes', requiresGroup: false },
-  { icon: Activity, label: 'Activity', path: '/activity', requiresGroup: true },
-  { icon: Folder, label: 'Resources', path: '/resources', requiresGroup: true },
+const personalItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: Calendar, label: 'Calendar', path: '/calendar' },
+  { icon: CheckSquare, label: 'Tasks', path: '/tasks' },
+  { icon: FileText, label: 'Notes', path: '/notes' },
+];
+
+const groupItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: Calendar, label: 'Calendar', path: '/calendar' },
+  { icon: CheckSquare, label: 'Tasks', path: '/tasks' },
+  { icon: FileText, label: 'Notes', path: '/notes' },
+  { icon: MessageSquare, label: 'Chat', path: '/chat' },
+  { icon: Activity, label: 'Activity', path: '/activity' },
+  { icon: Folder, label: 'Resources', path: '/resources' },
 ];
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const { activeGroup, user, userStatus, setActiveGroup, setShowGroupSetup, clearGroupData } = useStore();
+  const { activeGroup, user, userStatus, mode, setMode, setActiveGroup, setShowGroupSetup, clearGroupData } = useStore();
+  const navigate = useNavigate();
 
   const inGroup = !!activeGroup;
-  const visibleItems = navItems.filter(item => !item.requiresGroup || inGroup);
+  const isGroupMode = mode === 'group';
+  const visibleItems = isGroupMode && inGroup ? groupItems : personalItems;
 
   const handleLeaveGroup = async () => {
     if (activeGroup && user) {
@@ -38,10 +48,20 @@ export function Sidebar() {
     }
     clearGroupData();
     setActiveGroup(null);
+    setMode('personal');
+    navigate('/dashboard');
   };
 
-  const handleSwitchGroup = () => {
-    setShowGroupSetup(true);
+  const handleModeSwitch = (newMode) => {
+    if (newMode === 'group') {
+      if (!inGroup) {
+        setShowGroupSetup(true);
+      }
+      setMode('group');
+    } else {
+      setMode('personal');
+      navigate('/dashboard');
+    }
   };
 
   return (
@@ -58,28 +78,16 @@ export function Sidebar() {
       {/* Brand + Collapse */}
       <div
         className={cn("flex items-center justify-between px-4", collapsed && "justify-center")}
-        style={{
-          height: 60,
-          borderBottom: '1px solid var(--color-border-subtle)',
-        }}
+        style={{ height: 60, borderBottom: '1px solid var(--color-border-subtle)' }}
       >
         <NavLink to="/" className="flex items-center gap-2.5 min-w-0" style={{ textDecoration: 'none' }}>
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 10,
-              background: 'linear-gradient(135deg, var(--color-accent), var(--color-accent-hover))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: 700,
-              fontSize: 16,
-              flexShrink: 0,
-              boxShadow: '0 2px 12px rgba(108, 92, 231, 0.3)',
-            }}
-          >
+          <div style={{
+            width: 34, height: 34, borderRadius: 10,
+            background: 'linear-gradient(135deg, var(--color-accent), var(--color-accent-hover))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', fontWeight: 700, fontSize: 16, flexShrink: 0,
+            boxShadow: '0 2px 12px rgba(108, 92, 231, 0.3)',
+          }}>
             T
           </div>
           {!collapsed && (
@@ -98,75 +106,71 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Group / Personal toggle area */}
+      {/* Mode Toggle: Personal / Group */}
       <div className={cn("p-3", collapsed && "px-2")}>
         {!collapsed ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {/* Group join/switch button */}
-            <button
-              onClick={handleSwitchGroup}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                width: '100%',
-                padding: '8px 10px',
-                background: inGroup ? 'var(--color-accent-soft)' : 'var(--color-bg-tertiary)',
-                border: inGroup ? '1px solid rgba(108,92,231,0.2)' : '1px solid var(--color-border-default)',
-                borderRadius: 10,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                textAlign: 'left',
-              }}
-              className="hover:bg-[var(--color-bg-hover)]"
-            >
-              <div style={{
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                background: inGroup
-                  ? 'linear-gradient(135deg, var(--color-accent), var(--color-accent-hover))'
-                  : 'var(--color-bg-hover)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: inGroup ? 'white' : 'var(--color-text-muted)',
-                fontWeight: 700,
-                fontSize: 13,
-                flexShrink: 0,
-              }}>
-                {inGroup ? activeGroup.name.charAt(0).toUpperCase() : <Users size={14} />}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {inGroup ? activeGroup.name : 'No Group'}
-                </p>
-                <p style={{ fontSize: 9, color: 'var(--color-text-muted)' }}>
-                  {inGroup
-                    ? `${(activeGroup.members || []).length} member${(activeGroup.members || []).length !== 1 ? 's' : ''}`
-                    : 'Join or create a group'}
-                </p>
-              </div>
-              <ChevronRight size={13} style={{ color: 'var(--color-text-disabled)', flexShrink: 0 }} />
-            </button>
+            {/* Toggle buttons */}
+            <div style={{
+              display: 'flex', borderRadius: 10, overflow: 'hidden',
+              border: '1px solid var(--color-border-default)',
+              background: 'var(--color-bg-tertiary)',
+            }}>
+              <button
+                onClick={() => handleModeSwitch('personal')}
+                style={{
+                  flex: 1, padding: '7px 0', fontSize: 11, fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                  background: !isGroupMode ? 'var(--color-accent)' : 'transparent',
+                  color: !isGroupMode ? 'white' : 'var(--color-text-muted)',
+                  borderRadius: !isGroupMode ? 9 : 0,
+                }}
+              >
+                <User size={13} /> Personal
+              </button>
+              <button
+                onClick={() => handleModeSwitch('group')}
+                style={{
+                  flex: 1, padding: '7px 0', fontSize: 11, fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                  background: isGroupMode ? 'var(--color-accent)' : 'transparent',
+                  color: isGroupMode ? 'white' : 'var(--color-text-muted)',
+                  borderRadius: isGroupMode ? 9 : 0,
+                }}
+              >
+                <Users size={13} /> Group
+              </button>
+            </div>
 
-            {/* Group Info & Actions */}
-            {inGroup && (
+            {/* Group info (only in group mode) */}
+            {isGroupMode && inGroup && (
               <div style={{
-                padding: '8px 10px',
-                borderRadius: 8,
-                background: 'var(--color-bg-tertiary)',
-                border: '1px solid var(--color-border-subtle)',
+                padding: '8px 10px', borderRadius: 10,
+                background: 'var(--color-accent-soft)',
+                border: '1px solid rgba(108,92,231,0.2)',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)' }}>
-                    Members
-                  </span>
-                  <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
-                    {(activeGroup.members || []).length}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: 8,
+                    background: 'linear-gradient(135deg, var(--color-accent), var(--color-accent-hover))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontWeight: 700, fontSize: 12, flexShrink: 0,
+                  }}>
+                    {activeGroup.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {activeGroup.name}
+                    </p>
+                    <p style={{ fontSize: 9, color: 'var(--color-text-muted)' }}>
+                      {(activeGroup.members || []).length} member{(activeGroup.members || []).length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 80, overflowY: 'auto' }}>
+                {/* Member list */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 70, overflowY: 'auto', marginBottom: 6 }}>
                   {(activeGroup.members || []).map(m => (
                     <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <div style={{
@@ -175,80 +179,85 @@ export function Sidebar() {
                         flexShrink: 0,
                       }} />
                       <span style={{
-                        fontSize: 11,
+                        fontSize: 10,
                         color: m.id === user?.id ? 'var(--color-accent)' : 'var(--color-text-secondary)',
                         fontWeight: m.id === user?.id ? 600 : 400,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
                       }}>
                         {m.name}{m.id === user?.id ? ' (you)' : ''}
                       </span>
                     </div>
                   ))}
                 </div>
-                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                  <button
-                    onClick={handleSwitchGroup}
-                    className="btn-sm btn-secondary"
-                    style={{ flex: 1, fontSize: 10, padding: '4px 8px' }}
-                  >
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => setShowGroupSetup(true)} className="btn-sm btn-secondary" style={{ flex: 1, fontSize: 10, padding: '4px 8px' }}>
                     Switch
                   </button>
-                  <button
-                    onClick={handleLeaveGroup}
-                    className="btn-sm btn-danger"
-                    style={{ flex: 1, fontSize: 10, padding: '4px 8px' }}
-                  >
+                  <button onClick={handleLeaveGroup} className="btn-sm btn-danger" style={{ flex: 1, fontSize: 10, padding: '4px 8px' }}>
                     Leave
                   </button>
                 </div>
               </div>
             )}
+
+            {/* Prompt to join if group mode but no group */}
+            {isGroupMode && !inGroup && (
+              <button
+                onClick={() => setShowGroupSetup(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                  padding: '10px 10px', background: 'var(--color-bg-tertiary)',
+                  border: '1px dashed var(--color-border-default)', borderRadius: 10,
+                  cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
+                }}
+                className="hover:bg-[var(--color-bg-hover)]"
+              >
+                <Users size={16} style={{ color: 'var(--color-text-muted)' }} />
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)' }}>Join or Create Group</p>
+                  <p style={{ fontSize: 9, color: 'var(--color-text-muted)' }}>Tap to get started</p>
+                </div>
+              </button>
+            )}
           </div>
         ) : (
-          <button
-            onClick={handleSwitchGroup}
-            className="btn-ghost"
-            style={{
-              width: '100%',
-              padding: 6,
-              borderRadius: 8,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            title={inGroup ? activeGroup.name : 'Join a Group'}
-          >
-            {inGroup ? (
-              <div style={{
-                width: 24,
-                height: 24,
-                borderRadius: 6,
-                background: 'linear-gradient(135deg, var(--color-accent), var(--color-accent-hover))',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                fontSize: 11,
-                fontWeight: 700,
-              }}>
-                {activeGroup.name.charAt(0).toUpperCase()}
-              </div>
-            ) : (
+          /* Collapsed mode toggle */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <button
+              onClick={() => handleModeSwitch('personal')}
+              className="btn-ghost"
+              style={{
+                width: '100%', padding: 6, borderRadius: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: !isGroupMode ? 'var(--color-accent-soft)' : 'transparent',
+                color: !isGroupMode ? 'var(--color-accent)' : 'var(--color-text-muted)',
+              }}
+              title="Personal"
+            >
+              <User size={16} />
+            </button>
+            <button
+              onClick={() => handleModeSwitch('group')}
+              className="btn-ghost"
+              style={{
+                width: '100%', padding: 6, borderRadius: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: isGroupMode ? 'var(--color-accent-soft)' : 'transparent',
+                color: isGroupMode ? 'var(--color-accent)' : 'var(--color-text-muted)',
+              }}
+              title={inGroup ? activeGroup.name : 'Group'}
+            >
               <Users size={16} />
-            )}
-          </button>
+            </button>
+          </div>
         )}
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 space-y-0.5" style={{ paddingBottom: 16 }}>
-        {/* Personal section label */}
         {!collapsed && (
           <div style={{ padding: '6px 12px 4px', marginTop: 4 }}>
             <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--color-text-disabled)' }}>
-              {inGroup ? 'Workspace' : 'Personal'}
+              {isGroupMode ? 'Workspace' : 'Personal'}
             </span>
           </div>
         )}
@@ -281,20 +290,9 @@ export function Sidebar() {
       </nav>
 
       {/* User Footer */}
-      <div
-        style={{
-          borderTop: '1px solid var(--color-border-subtle)',
-          padding: collapsed ? '12px 8px' : '12px 16px',
-        }}
-      >
+      <div style={{ borderTop: '1px solid var(--color-border-subtle)', padding: collapsed ? '12px 8px' : '12px 16px' }}>
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-          <Avatar
-            name={user?.name}
-            avatar={user?.avatar}
-            size="md"
-            status={userStatus}
-            showStatus
-          />
+          <Avatar name={user?.name} avatar={user?.avatar} size="md" status={userStatus} showStatus />
           {!collapsed && (
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -309,18 +307,11 @@ export function Sidebar() {
               style={{ width: 28, height: 28, color: 'var(--color-danger)' }}
               title="Sign out"
               onClick={async () => {
-                // Leave current group if any
-                if (activeGroup && user) {
-                  try {
-                    await leaveGroupFS(activeGroup.id, user.id);
-                  } catch (err) {
-                    console.error(err);
-                  }
-                }
                 await logout();
                 useStore.getState().clearGroupData();
                 useStore.getState().setActiveGroup(null);
                 useStore.getState().setUser(null);
+                useStore.getState().setMode('personal');
               }}
             >
               <LogOut size={15} />

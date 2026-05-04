@@ -171,6 +171,23 @@ export function subscribeToGroup(groupId, callback) {
 }
 
 /**
+ * Fetch all groups where a given user is a member.
+ * Returns an array of group objects.
+ */
+export async function getUserGroups(userId) {
+  const snap = await getDocs(collection(db, GROUPS_COL));
+  const groups = [];
+  snap.docs.forEach(d => {
+    const data = d.data();
+    const members = data.members || [];
+    if (members.some(m => m.id === userId)) {
+      groups.push(data);
+    }
+  });
+  return groups;
+}
+
+/**
  * Get a group by ID.
  */
 export async function getGroupById(groupId) {

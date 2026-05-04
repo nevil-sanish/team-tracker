@@ -6,7 +6,7 @@ import { initGroupDefaults } from '../lib/dataService';
 import Avatar from './Avatar';
 
 export default function GroupSetup() {
-  const { user, setActiveGroup, setShowGroupSetup } = useStore();
+  const { user, setActiveGroup, setShowGroupSetup, setMode } = useStore();
   const [tab, setTab] = useState('join');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -42,6 +42,7 @@ export default function GroupSetup() {
       const group = await createGroup(name.trim(), password.trim(), user);
       await initGroupDefaults(group.id);
       setActiveGroup(group);
+      setMode('group');
       setShowGroupSetup(false);
     } catch (err) {
       setError(err.message || 'Failed to create group');
@@ -59,6 +60,7 @@ export default function GroupSetup() {
     try {
       const group = await joinGroup(name.trim(), password.trim(), user);
       setActiveGroup(group);
+      setMode('group');
       setShowGroupSetup(false);
     } catch (err) {
       setError(err.message || 'Failed to join group');
