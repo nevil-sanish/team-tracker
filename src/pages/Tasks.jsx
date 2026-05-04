@@ -9,7 +9,7 @@ import { saveTask, deleteTask, updateTaskDoc } from '../lib/dataService';
 import { saveActivity } from '../lib/dataService';
 import Avatar from '../components/Avatar';
 
-const COLUMNS = ['todo', 'in_progress', 'review', 'done'];
+const COLUMNS = ['todo', 'in_progress', 'done'];
 
 export default function Tasks() {
   const { activeGroup, tasks, addTask, removeTask, updateTask, moveTask, user, addNotification } = useStore();

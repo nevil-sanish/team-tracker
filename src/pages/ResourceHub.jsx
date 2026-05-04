@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Link as LinkIcon, FileText, Code, Search, Grid3X3, List, Folder, Plus, X, Trash2, Upload, Image, Film, File, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { Link as LinkIcon, FileText, Code, Grid3X3, List, Search, Folder, Plus, X, Trash2, Upload, Image, Film, File, Download, ExternalLink, Loader2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { formatRelative } from '../lib/utils';
 import { saveResource, deleteResource as deleteResourceFS, saveActivity, uploadResourceFile, deleteStorageFile } from '../lib/dataService';
@@ -36,6 +36,9 @@ export default function ResourceHub() {
   const [preview, setPreview] = useState(null);
   const groupId = activeGroup?.id;
 
+  const [filterType, setFilterType] = useState('all');
+  const [filterSection, setFilterSection] = useState('all');
+
   if (!activeGroup) {
     return (
       <div className="h-full flex items-center justify-center animate-fade-in">
@@ -48,11 +51,34 @@ export default function ResourceHub() {
     );
   }
 
+  // Get unique categories for the section dropdown
+  const allCategories = useMemo(() => {
+    const cats = new Set(resources.map(r => r.category || 'General'));
+    return Array.from(cats);
+  }, [resources]);
+
   const filtered = useMemo(() => {
-    if (!searchQuery.trim()) return resources;
-    const q = searchQuery.toLowerCase();
-    return resources.filter(r => r.title?.toLowerCase().includes(q) || r.category?.toLowerCase().includes(q) || r.fileName?.toLowerCase().includes(q));
-  }, [resources, searchQuery]);
+    let items = resources;
+    // Type filter
+    if (filterType !== 'all') {
+      items = items.filter(r => {
+        if (filterType === 'file') return r.type === 'file' || r.type === 'image' || r.type === 'video';
+        if (filterType === 'link') return r.type === 'link';
+        if (filterType === 'text') return r.type === 'snippet';
+        return true;
+      });
+    }
+    // Section filter
+    if (filterSection !== 'all') {
+      items = items.filter(r => (r.category || 'General') === filterSection);
+    }
+    // Search
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      items = items.filter(r => r.title?.toLowerCase().includes(q) || r.category?.toLowerCase().includes(q) || r.fileName?.toLowerCase().includes(q));
+    }
+    return items;
+  }, [resources, filterType, filterSection, searchQuery]);
 
   const byCategory = useMemo(() => {
     const map = {};
@@ -82,15 +108,39 @@ export default function ResourceHub() {
   return (
     <div className="h-full overflow-y-auto animate-fade-in" style={{ padding: '24px 32px' }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: 400 }}>
-            <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-disabled)' }} />
-            <input className="input" placeholder="Search resources..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ paddingLeft: 36, height: 36 }} />
+        {/* ── Filter Bar ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+          {/* Type dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Type:</span>
+            <select
+              className="input"
+              value={filterType}
+              onChange={e => setFilterType(e.target.value)}
+              style={{ width: 120, height: 32, fontSize: 12 }}
+            >
+              <option value="all">All Types</option>
+              <option value="text">Text / Snippet</option>
+              <option value="file">File</option>
+              <option value="link">Link</option>
+            </select>
           </div>
-          <div className="tab-group">
-            <button className={`tab-item ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')} style={{ padding: 6 }}><Grid3X3 size={15} /></button>
-            <button className={`tab-item ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')} style={{ padding: 6 }}><List size={15} /></button>
+
+          {/* Section dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Section:</span>
+            <select
+              className="input"
+              value={filterSection}
+              onChange={e => setFilterSection(e.target.value)}
+              style={{ width: 140, height: 32, fontSize: 12 }}
+            >
+              <option value="all">All Sections</option>
+              {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
+
+          <div style={{ flex: 1 }} />
           <button className="btn btn-primary btn-sm" onClick={() => setShowNew(true)}><Plus size={14} /> Add Resource</button>
         </div>
 
