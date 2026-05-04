@@ -104,6 +104,52 @@ export default function App() {
     };
   }, [activeGroup?.id]);
 
+  // Automatic online/offline presence
+  useEffect(() => {
+    if (!user?.id || !activeGroup?.id) return;
+
+    const gid = activeGroup.id;
+    const uid = user.id;
+
+    // Set online when page is visible
+    const setOnline = () => {
+      updateMemberStatus(gid, uid, 'online').catch(() => {});
+      useStore.getState().setUserStatus('online');
+    };
+
+    // Set offline when page is hidden or closing
+    const setOffline = () => {
+      updateMemberStatus(gid, uid, 'offline').catch(() => {});
+      useStore.getState().setUserStatus('offline');
+    };
+
+    // Mark online immediately
+    setOnline();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        setOnline();
+      } else {
+        setOffline();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      // Use sendBeacon for reliable offline update on tab close
+      setOffline();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Mark offline when effect cleans up (e.g. leaving group)
+      setOffline();
+    };
+  }, [user?.id, activeGroup?.id]);
+
   if (loading) {
     return (
       <div style={{

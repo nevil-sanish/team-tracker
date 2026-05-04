@@ -1,15 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, Search, Sun, Moon, Users, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { cn, formatRelative, presenceMeta } from '../lib/utils';
+import { cn, formatRelative } from '../lib/utils';
 import Avatar from './Avatar';
 
 export function TopBar({ title, subtitle, actions }) {
-  const { activeGroup, user, userStatus, setUserStatus, notifications, markNotificationRead } = useStore();
+  const { activeGroup, user, userStatus, notifications, markNotificationRead } = useStore();
   const [query, setQuery] = useState('');
   const [showNotifs, setShowNotifs] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [showStatus, setShowStatus] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
@@ -17,7 +16,6 @@ export function TopBar({ title, subtitle, actions }) {
   });
   const notifRef = useRef(null);
   const profileRef = useRef(null);
-  const statusRef = useRef(null);
   const membersRef = useRef(null);
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -33,7 +31,6 @@ export function TopBar({ title, subtitle, actions }) {
     const handler = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifs(false);
       if (profileRef.current && !profileRef.current.contains(e.target)) setShowProfile(false);
-      if (statusRef.current && !statusRef.current.contains(e.target)) setShowStatus(false);
       if (membersRef.current && !membersRef.current.contains(e.target)) setShowMembers(false);
     };
     document.addEventListener('mousedown', handler);
@@ -120,36 +117,6 @@ export function TopBar({ title, subtitle, actions }) {
           {darkMode ? <Sun size={16} /> : <Moon size={16} />}
         </button>
 
-        {/* Status Selector */}
-        <div ref={statusRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowStatus(!showStatus)}
-            className="btn-ghost btn-icon"
-            style={{ width: 32, height: 32, position: 'relative', fontSize: 16 }}
-            title="Set status"
-          >
-            {presenceMeta[userStatus]?.icon || '🟢'}
-          </button>
-          {showStatus && (
-            <div className="dropdown-content animate-scale-in" style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, minWidth: 160, zIndex: 50 }}>
-              <div style={{ padding: '8px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)' }}>
-                Set Status
-              </div>
-              <div className="dropdown-separator" />
-              {Object.entries(presenceMeta).map(([key, meta]) => (
-                <button
-                  key={key}
-                  className="dropdown-item"
-                  onClick={() => { setUserStatus(key); setShowStatus(false); }}
-                  style={{ fontWeight: userStatus === key ? 600 : 400, color: userStatus === key ? 'var(--color-text-primary)' : undefined }}
-                >
-                  <span style={{ fontSize: 14, flexShrink: 0 }}>{meta.icon}</span>
-                  {meta.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Members Button (Group only) */}
         {inGroup && (
@@ -319,9 +286,12 @@ export function TopBar({ title, subtitle, actions }) {
           >
             <div style={{ textAlign: 'right', lineHeight: 1.2 }}>
               <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)' }}>{user?.name || 'User'}</p>
-              <p style={{ fontSize: 9, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                {presenceMeta[userStatus]?.label}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: userStatus === 'online' ? 'var(--color-status-online)' : 'var(--color-status-offline)' }} />
+                <p style={{ fontSize: 9, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  {userStatus === 'online' ? 'Online' : 'Offline'}
+                </p>
+              </div>
             </div>
             <Avatar name={user?.name} avatar={user?.avatar} size="sm" status={userStatus} showStatus />
           </button>

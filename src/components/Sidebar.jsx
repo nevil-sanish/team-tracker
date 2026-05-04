@@ -10,7 +10,6 @@ import { cn } from '../lib/utils';
 import { logout } from '../lib/firebase';
 import { leaveGroup as leaveGroupFS } from '../lib/groupService';
 import Avatar from './Avatar';
-import StatusBadge from './StatusBadge';
 
 const personalItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
@@ -298,7 +297,12 @@ export function Sidebar() {
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {user?.name || 'User'}
               </div>
-              <StatusBadge status={userStatus} showLabel size="sm" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: userStatus === 'online' ? 'var(--color-status-online)' : 'var(--color-status-offline)' }} />
+                <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>
+                  {userStatus === 'online' ? 'Online' : 'Offline'}
+                </span>
+              </div>
             </div>
           )}
           {!collapsed && (
