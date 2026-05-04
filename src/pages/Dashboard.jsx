@@ -29,8 +29,8 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="h-full overflow-y-auto animate-fade-in" style={{ padding: '24px 32px' }}>
-      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+    <div className="h-full overflow-y-auto animate-fade-in" style={{ padding: '24px' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         {/* Welcome Header */}
         <div style={{ marginBottom: 28 }}>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.02em' }}>
@@ -44,7 +44,7 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 32 }}>
           {[
             { label: 'Today\'s Events', value: todayEvents.length, icon: Calendar, color: 'var(--color-accent)', to: '/calendar' },
             { label: 'In Progress', value: inProgressCount, icon: TrendingUp, color: 'var(--color-info)', to: '/tasks' },
@@ -71,7 +71,7 @@ export default function Dashboard() {
           })}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Today's Schedule */}
           <div className="card" style={{ padding: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>

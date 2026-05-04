@@ -60,19 +60,100 @@ export default function CalendarView() {
 
 function MonthView({cursor,events,onDateClick,onRemove}) {
   const days = useMemo(()=>buildMonth(cursor),[cursor]);
-  const byDay = useMemo(()=>{const m={};events.forEach(e=>(m[e.date]||=[]).push(e));return m;},[events]);
+  const byDay = useMemo(()=>{
+    const m={};
+    events.forEach(e=>(m[e.date]||=[]).push(e));
+    return m;
+  },[events]);
+
   return (
-    <div style={{padding:'16px 20px'}}>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:1,background:'var(--color-border-subtle)',borderRadius:12,overflow:'hidden',border:'1px solid var(--color-border-subtle)'}}>
-        {DAYS.map(d=>(<div key={d} style={{background:'var(--color-bg-tertiary)',padding:'8px 10px',fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--color-text-muted)'}}>{d}</div>))}
-        {days.map(d=>{const key=toDateKey(d.date);const de=byDay[key]||[];const isToday=key===toDateKey(new Date());return(
-          <div key={key} onClick={()=>onDateClick(d.date)} style={{background:d.inMonth?'var(--color-bg-elevated)':'var(--color-bg-secondary)',minHeight:100,padding:6,cursor:'pointer',transition:'background 0.15s',opacity:d.inMonth?1:0.4}} className="hover:bg-[var(--color-bg-hover)]">
-            <div style={{fontSize:12,fontWeight:isToday?700:500,width:isToday?24:'auto',height:isToday?24:'auto',borderRadius:isToday?'50%':0,background:isToday?'var(--color-accent)':'transparent',color:isToday?'white':'var(--color-text-primary)',display:isToday?'flex':'block',alignItems:'center',justifyContent:'center',lineHeight:1,marginBottom:4}}>{d.date.getDate()}</div>
-            <div style={{display:'flex',flexDirection:'column',gap:2,overflow:'hidden'}}>
-              {de.slice(0,3).map(e=>(<div key={e.id} style={{fontSize:10,padding:'2px 6px',borderRadius:5,background:'var(--color-accent-soft)',color:'var(--color-accent)',display:'flex',alignItems:'center',gap:3,whiteSpace:'nowrap',overflow:'hidden'}} title={e.title}><span style={{width:4,height:4,borderRadius:'50%',background:'var(--color-accent)',flexShrink:0}}/><span style={{fontFamily:'var(--font-mono)',fontSize:9,opacity:0.7}}>{e.startTime}</span><span style={{overflow:'hidden',textOverflow:'ellipsis',flex:1}}>{e.title}</span></div>))}
-              {de.length>3&&<span style={{fontSize:9,color:'var(--color-text-muted)',fontStyle:'italic'}}>+{de.length-3} more</span>}
+    <div style={{padding:'20px', maxWidth: 1200, margin: '0 auto'}}>
+      <div style={{
+        display:'grid',
+        gridTemplateColumns:'repeat(7,1fr)',
+        gap:1,
+        background:'var(--color-border-subtle)',
+        borderRadius:12,
+        overflow:'hidden',
+        border:'1px solid var(--color-border-subtle)'
+      }}>
+        {DAYS.map(d=>(
+          <div key={d} style={{
+            background:'var(--color-bg-tertiary)',
+            padding:'10px',
+            fontSize:11,
+            fontWeight:700,
+            textAlign:'center',
+            textTransform:'uppercase',
+            letterSpacing:'0.1em',
+            color:'var(--color-text-muted)'
+          }}>
+            {d}
+          </div>
+        ))}
+        {days.map(d=>{
+          const key=toDateKey(d.date);
+          const de=byDay[key]||[];
+          const isToday=key===toDateKey(new Date());
+          return(
+            <div key={key} onClick={()=>onDateClick(d.date)} style={{
+              background:d.inMonth?'var(--color-bg-elevated)':'var(--color-bg-secondary)',
+              minHeight:120,
+              padding:'8px',
+              cursor:'pointer',
+              transition:'all 0.2s',
+              opacity:d.inMonth?1:0.5,
+              display:'flex',
+              flexDirection:'column'
+            }} className="hover:bg-[var(--color-bg-hover)]">
+              <div style={{
+                display:'flex',
+                justifyContent:'flex-end',
+                marginBottom:6
+              }}>
+                <div style={{
+                  fontSize:12,
+                  fontWeight:isToday?700:500,
+                  width:24,
+                  height:24,
+                  borderRadius:'50%',
+                  background:isToday?'var(--color-accent)':'transparent',
+                  color:isToday?'white':'var(--color-text-primary)',
+                  display:'flex',
+                  alignItems:'center',
+                  justifyContent:'center'
+                }}>
+                  {d.date.getDate()}
+                </div>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:3,overflow:'hidden',flex:1}}>
+                {de.slice(0,3).map(e=>(
+                  <div key={e.id} style={{
+                    fontSize:11,
+                    padding:'3px 6px',
+                    borderRadius:6,
+                    background:'var(--color-accent-soft)',
+                    color:'var(--color-accent)',
+                    display:'flex',
+                    alignItems:'center',
+                    gap:4,
+                    whiteSpace:'nowrap',
+                    overflow:'hidden',
+                    fontWeight:500
+                  }} title={e.title}>
+                    <span style={{width:6,height:6,borderRadius:'50%',background:'var(--color-accent)',flexShrink:0}}/>
+                    <span style={{overflow:'hidden',textOverflow:'ellipsis',flex:1}}>{e.title}</span>
+                  </div>
+                ))}
+                {de.length>3 && (
+                  <span style={{fontSize:10,color:'var(--color-text-muted)',fontWeight:600,paddingLeft:4}}>
+                    +{de.length-3} more
+                  </span>
+                )}
+              </div>
             </div>
-          </div>);})}
+          );
+        })}
       </div>
     </div>
   );
@@ -81,14 +162,90 @@ function MonthView({cursor,events,onDateClick,onRemove}) {
 function WeekView({cursor,events,onRemove}) {
   const weekDays = useMemo(()=>buildWeek(cursor),[cursor]);
   const hours = Array.from({length:14},(_,i)=>i+7);
-  const byDay = useMemo(()=>{const m={};events.forEach(e=>(m[e.date]||=[]).push(e));return m;},[events]);
+  const byDay = useMemo(()=>{
+    const m={};
+    events.forEach(e=>(m[e.date]||=[]).push(e));
+    return m;
+  },[events]);
+
   return (
-    <div style={{padding:'12px 16px',overflowX:'auto'}}>
-      <div style={{display:'grid',gridTemplateColumns:'56px repeat(7,1fr)',gap:1,background:'var(--color-border-subtle)',borderRadius:12,overflow:'hidden',border:'1px solid var(--color-border-subtle)'}}>
+    <div style={{padding:'20px', overflowX:'auto', maxWidth: 1200, margin: '0 auto'}}>
+      <div style={{
+        display:'grid',
+        gridTemplateColumns:'60px repeat(7,minmax(120px, 1fr))',
+        gap:1,
+        background:'var(--color-border-subtle)',
+        borderRadius:12,
+        overflow:'hidden',
+        border:'1px solid var(--color-border-subtle)'
+      }}>
         <div style={{background:'var(--color-bg-tertiary)',padding:8}}/>
-        {weekDays.map(d=>{const key=toDateKey(d);const isT=key===toDateKey(new Date());return(<div key={key} style={{background:'var(--color-bg-tertiary)',padding:8,textAlign:'center'}}><div style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--color-text-muted)'}}>{d.toLocaleDateString(undefined,{weekday:'short'})}</div><div style={{fontSize:16,fontWeight:isT?700:500,color:isT?'var(--color-accent)':'var(--color-text-primary)',marginTop:2}}>{d.getDate()}</div></div>);})}
-        {hours.map(h=>(<React.Fragment key={`h-${h}`}><div style={{background:'var(--color-bg-elevated)',padding:'8px 6px',fontSize:10,fontFamily:'var(--font-mono)',color:'var(--color-text-muted)',textAlign:'right'}}>{h%12===0?12:h%12}{h<12?'a':'p'}</div>
-        {weekDays.map(d=>{const key=toDateKey(d);const he=(byDay[key]||[]).filter(e=>parseInt(e.startTime?.split(':')[0])===h);return(<div key={`${key}-${h}`} style={{background:'var(--color-bg-elevated)',minHeight:44,padding:2,borderTop:'1px solid var(--color-border-subtle)'}} className="hover:bg-[var(--color-bg-hover)]">{he.map(e=>(<div key={e.id} style={{fontSize:10,padding:'2px 6px',borderRadius:5,background:'var(--color-accent-soft)',color:'var(--color-accent)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{e.startTime} {e.title}</div>))}</div>);})}</React.Fragment>))}
+        {weekDays.map(d=>{
+          const key=toDateKey(d);
+          const isT=key===toDateKey(new Date());
+          return(
+            <div key={key} style={{background:'var(--color-bg-tertiary)',padding:'12px 8px',textAlign:'center'}}>
+              <div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',color:'var(--color-text-muted)'}}>
+                {d.toLocaleDateString(undefined,{weekday:'short'})}
+              </div>
+              <div style={{
+                fontSize:18,
+                fontWeight:isT?800:500,
+                color:isT?'var(--color-accent)':'var(--color-text-primary)',
+                marginTop:4
+              }}>
+                {d.getDate()}
+              </div>
+            </div>
+          );
+        })}
+        {hours.map(h=>(
+          <React.Fragment key={`h-${h}`}>
+            <div style={{
+              background:'var(--color-bg-elevated)',
+              padding:'12px 8px',
+              fontSize:11,
+              fontFamily:'var(--font-mono)',
+              color:'var(--color-text-muted)',
+              textAlign:'right',
+              borderTop:'1px solid var(--color-border-subtle)'
+            }}>
+              {h%12===0?12:h%12}{h<12?' AM':' PM'}
+            </div>
+            {weekDays.map(d=>{
+              const key=toDateKey(d);
+              const he=(byDay[key]||[]).filter(e=>parseInt(e.startTime?.split(':')[0])===h);
+              return(
+                <div key={`${key}-${h}`} style={{
+                  background:'var(--color-bg-elevated)',
+                  minHeight:60,
+                  padding:4,
+                  borderTop:'1px solid var(--color-border-subtle)',
+                  display:'flex',
+                  flexDirection:'column',
+                  gap:4
+                }} className="hover:bg-[var(--color-bg-hover)]">
+                  {he.map(e=>(
+                    <div key={e.id} style={{
+                      fontSize:11,
+                      fontWeight:500,
+                      padding:'4px 8px',
+                      borderRadius:6,
+                      background:'var(--color-accent-soft)',
+                      color:'var(--color-accent)',
+                      whiteSpace:'nowrap',
+                      overflow:'hidden',
+                      textOverflow:'ellipsis',
+                      boxShadow:'0 1px 2px rgba(0,0,0,0.05)'
+                    }}>
+                      {e.title}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </React.Fragment>
+        ))}
       </div>
     </div>
   );
@@ -98,25 +255,71 @@ function DayView({cursor,events,onRemove}) {
   const key = toDateKey(cursor);
   const de = events.filter(e=>e.date===key);
   const hours = Array.from({length:16},(_,i)=>i+6);
+
   return (
-    <div style={{padding:'20px 24px',maxWidth:800,margin:'0 auto'}}>
-      <div style={{borderRadius:12,border:'1px solid var(--color-border-subtle)',overflow:'hidden'}}>
-        {hours.map(h=>{const he=de.filter(e=>parseInt(e.startTime?.split(':')[0])===h);return(
-          <div key={h} style={{display:'flex',borderBottom:'1px solid var(--color-border-subtle)'}} className="hover:bg-[var(--color-bg-hover)]">
-            <div style={{width:64,flexShrink:0,padding:'12px 8px',textAlign:'right',fontSize:10,fontFamily:'var(--font-mono)',color:'var(--color-text-muted)',borderRight:'1px solid var(--color-border-subtle)'}}>{h%12===0?12:h%12}:00 {h<12?'AM':'PM'}</div>
-            <div style={{flex:1,minHeight:52,padding:4,display:'flex',flexDirection:'column',gap:4}}>
-              {he.map(e=>(<div key={e.id} className="card" style={{padding:'8px 12px',display:'flex',alignItems:'flex-start',gap:10,borderRadius:10}}>
-                <div style={{width:3,height:32,borderRadius:2,background:'var(--color-accent)',flexShrink:0,marginTop:2}}/>
-                <div style={{flex:1}}><p style={{fontSize:13,fontWeight:600,color:'var(--color-text-primary)'}}>{e.title}</p>
-                <div style={{display:'flex',flexWrap:'wrap',gap:10,marginTop:4,fontSize:11,color:'var(--color-text-muted)'}}>
-                  <span style={{display:'flex',alignItems:'center',gap:3}}><Clock size={11}/> {e.startTime} – {e.endTime}</span>
-                  {e.location&&<span style={{display:'flex',alignItems:'center',gap:3}}><MapPin size={11}/> {e.location}</span>}
-                  <span style={{fontStyle:'italic'}}>by {e.createdBy}</span>
-                </div></div>
-                <button onClick={()=>onRemove(e.id)} className="btn-ghost btn-icon" style={{width:24,height:24,color:'var(--color-danger)',opacity:0.5}}><Trash2 size={13}/></button>
-              </div>))}
+    <div style={{padding:'24px',maxWidth:800,margin:'0 auto'}}>
+      <div style={{
+        borderRadius:16,
+        border:'1px solid var(--color-border-subtle)',
+        background: 'var(--color-bg-elevated)',
+        overflow:'hidden',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
+      }}>
+        {hours.map(h=>{
+          const he=de.filter(e=>parseInt(e.startTime?.split(':')[0])===h);
+          return(
+            <div key={h} style={{
+              display:'flex',
+              borderBottom:'1px solid var(--color-border-subtle)'
+            }} className="hover:bg-[var(--color-bg-hover)] transition-colors duration-200">
+              <div style={{
+                width:80,
+                flexShrink:0,
+                padding:'16px 12px',
+                textAlign:'right',
+                fontSize:12,
+                fontFamily:'var(--font-mono)',
+                fontWeight:500,
+                color:'var(--color-text-muted)',
+                borderRight:'1px solid var(--color-border-subtle)',
+                background:'var(--color-bg-tertiary)'
+              }}>
+                {h%12===0?12:h%12}:00 {h<12?'AM':'PM'}
+              </div>
+              <div style={{
+                flex:1,
+                minHeight:72,
+                padding:'8px',
+                display:'flex',
+                flexDirection:'column',
+                gap:8
+              }}>
+                {he.map(e=>(
+                  <div key={e.id} className="card" style={{
+                    padding:'12px 16px',
+                    display:'flex',
+                    alignItems:'flex-start',
+                    gap:12,
+                    borderRadius:12,
+                    borderLeft:'4px solid var(--color-accent)'
+                  }}>
+                    <div style={{flex:1}}>
+                      <p style={{fontSize:14,fontWeight:700,color:'var(--color-text-primary)',marginBottom:4}}>{e.title}</p>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:12,fontSize:12,color:'var(--color-text-muted)'}}>
+                        <span style={{display:'flex',alignItems:'center',gap:4}}><Clock size={12} className="text-[var(--color-accent)]"/> {e.startTime} – {e.endTime}</span>
+                        {e.location&&<span style={{display:'flex',alignItems:'center',gap:4}}><MapPin size={12} className="text-[var(--color-accent)]"/> {e.location}</span>}
+                        <span style={{fontStyle:'italic'}}>by {e.createdBy}</span>
+                      </div>
+                    </div>
+                    <button onClick={()=>onRemove(e.id)} className="btn-ghost btn-icon" style={{width:28,height:28,color:'var(--color-danger)'}} title="Remove Event">
+                      <Trash2 size={14}/>
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>);})}
+          );
+        })}
       </div>
     </div>
   );
