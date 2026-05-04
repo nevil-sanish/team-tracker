@@ -85,7 +85,7 @@ export function Sidebar() {
             background: 'linear-gradient(135deg, var(--color-accent), var(--color-accent-hover))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'white', fontWeight: 700, fontSize: 16, flexShrink: 0,
-            boxShadow: '0 2px 12px rgba(108, 92, 231, 0.3)',
+            boxShadow: '0 2px 12px rgba(249, 115, 22, 0.3)',
           }}>
             T
           </div>

@@ -173,7 +173,7 @@ export default function App() {
           color: 'white',
           fontWeight: 800,
           fontSize: 20,
-          boxShadow: '0 4px 20px rgba(108, 92, 231, 0.3)',
+          boxShadow: '0 4px 20px rgba(249, 115, 22, 0.3)',
         }}>
           T
         </div>

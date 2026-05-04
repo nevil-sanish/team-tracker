@@ -28,7 +28,7 @@ export default function Login() {
         width: 600,
         height: 600,
         borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(108, 92, 231, 0.08), transparent 70%)',
+        background: 'radial-gradient(circle, rgba(249, 115, 22, 0.08), transparent 70%)',
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
@@ -51,7 +51,7 @@ export default function Login() {
           alignItems: 'center',
           justifyContent: 'center',
           margin: '0 auto 20px',
-          boxShadow: '0 8px 32px rgba(108, 92, 231, 0.3)',
+          boxShadow: '0 8px 32px rgba(249, 115, 22, 0.3)',
         }}>
           <Users size={30} style={{ color: 'white' }} />
         </div>
@@ -114,10 +114,10 @@ export default function Login() {
             borderRadius: 14,
             cursor: 'pointer',
             transition: 'all 0.2s',
-            boxShadow: '0 4px 20px rgba(108, 92, 231, 0.3)',
+            boxShadow: '0 4px 20px rgba(249, 115, 22, 0.3)',
           }}
-          onMouseEnter={e => e.currentTarget.style.boxShadow = '0 8px 32px rgba(108, 92, 231, 0.4)'}
-          onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(108, 92, 231, 0.3)'}
+          onMouseEnter={e => e.currentTarget.style.boxShadow = '0 8px 32px rgba(249, 115, 22, 0.4)'}
+          onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(249, 115, 22, 0.3)'}
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
