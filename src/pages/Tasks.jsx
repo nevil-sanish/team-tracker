@@ -12,7 +12,13 @@ import Avatar from '../components/Avatar';
 const COLUMNS = ['todo', 'in_progress', 'done'];
 
 export default function Tasks() {
-  const { activeGroup, tasks, addTask, removeTask, updateTask, moveTask, user, addNotification } = useStore();
+  const store = useStore();
+  const { activeGroup, user, addNotification, mode,
+    addTask, removeTask, updateTask, moveTask,
+    addPersonalTask, removePersonalTask, updatePersonalTask, movePersonalTask,
+    getActiveTasks } = store;
+  const tasks = getActiveTasks();
+  const isGroup = mode === 'group' && !!activeGroup;
   const [view, setView] = useState('kanban');
   const [filterPriority, setFilterPriority] = useState(null);
   const [filterStatus, setFilterStatus] = useState(null);
@@ -20,7 +26,7 @@ export default function Tasks() {
   const [showFilters, setShowFilters] = useState(false);
   const [draggedId, setDraggedId] = useState(null);
 
-  const groupId = activeGroup?.id;
+  const groupId = isGroup ? activeGroup.id : null;
 
   const visible = useMemo(() => {
     let items = [...tasks];
@@ -41,64 +47,37 @@ export default function Tasks() {
   const handleDrop = async (e, newStatus) => {
     e.preventDefault();
     if (draggedId) {
-      moveTask(draggedId, newStatus);
-      if (groupId) {
+      if (isGroup && groupId) {
+        moveTask(draggedId, newStatus);
         await updateTaskDoc(groupId, draggedId, { status: newStatus });
+      } else {
+        movePersonalTask(draggedId, newStatus);
       }
       setDraggedId(null);
     }
   };
 
   const handleAddTask = async (task) => {
-    const fullTask = {
-      ...task,
-      assignee: user?.name || 'You',
-      updatedBy: user?.name || 'You',
-      comments: 0,
-      attachments: 0,
-    };
-    if (groupId) {
-      const saved = await saveTask(groupId, fullTask);
-      await saveActivity(groupId, {
-        kind: 'task_created',
-        actorName: user?.name || 'You',
-        target: task.title,
-        at: new Date().toISOString(),
-      });
+    const fullTask = { ...task, assignee: user?.name || 'You', updatedBy: user?.name || 'You', comments: 0, attachments: 0 };
+    if (isGroup && groupId) {
+      await saveTask(groupId, fullTask);
+      await saveActivity(groupId, { kind: 'task_created', actorName: user?.name || 'You', target: task.title, at: new Date().toISOString() });
     } else {
-      addTask(fullTask);
+      addPersonalTask(fullTask);
     }
-    // Notification
-    addNotification({
-      title: 'Task Created',
-      message: `"${task.title}" has been added`,
-      type: 'info',
-      section: 'Tasks',
-    });
+    addNotification({ title: 'Task Created', message: `"${task.title}" has been added`, type: 'info', section: 'Tasks' });
     setShowNewTask(false);
   };
 
   const handleRemoveTask = async (id) => {
     const task = tasks.find(t => t.id === id);
-    if (groupId) {
+    if (isGroup && groupId) {
       await deleteTask(groupId, id);
-      if (task) {
-        await saveActivity(groupId, {
-          kind: 'task_deleted',
-          actorName: user?.name || 'You',
-          target: task.title,
-          at: new Date().toISOString(),
-        });
-      }
+      if (task) await saveActivity(groupId, { kind: 'task_deleted', actorName: user?.name || 'You', target: task.title, at: new Date().toISOString() });
     } else {
-      removeTask(id);
+      removePersonalTask(id);
     }
-    addNotification({
-      title: 'Task Deleted',
-      message: `"${task?.title || 'A task'}" has been removed`,
-      type: 'alert',
-      section: 'Tasks',
-    });
+    addNotification({ title: 'Task Deleted', message: `"${task?.title || 'A task'}" has been removed`, type: 'alert', section: 'Tasks' });
   };
 
   return (

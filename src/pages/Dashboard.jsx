@@ -6,8 +6,10 @@ import { NavLink } from 'react-router-dom';
 import { getSummary } from '../lib/groqService';
 
 export default function Dashboard() {
-  const { activeGroup, user, events, tasks } = useStore();
-  const inGroup = !!activeGroup;
+  const { activeGroup, user, getActiveEvents, getActiveTasks, mode } = useStore();
+  const events = getActiveEvents();
+  const tasks = getActiveTasks();
+  const inGroup = mode === 'group' && !!activeGroup;
 
   const todayEvents = useMemo(() => {
     const today = toDateKey(new Date());

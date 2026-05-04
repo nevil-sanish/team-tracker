@@ -21,7 +21,11 @@ function getEventColor(members, event) {
 }
 
 export default function CalendarView() {
-  const { activeGroup, events, addEvent, removeEvent, user, addNotification } = useStore();
+  const store = useStore();
+  const { activeGroup, user, addNotification, mode,
+    addEvent, removeEvent, addPersonalEvent, removePersonalEvent, getActiveEvents } = store;
+  const events = getActiveEvents();
+  const isGroup = mode === 'group' && !!activeGroup;
   const [cursor, setCursor] = useState(() => new Date());
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -30,22 +34,27 @@ export default function CalendarView() {
   const [calSections, setCalSections] = useState([{ id: 'default', name: 'General', enabled: true }]);
   const [showAddSection, setShowAddSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
-  const groupId = activeGroup?.id;
-  const members = activeGroup?.members || [];
+  const groupId = isGroup ? activeGroup.id : null;
+  const members = isGroup ? (activeGroup.members || []) : [];
 
   const nav = (dir) => { const d = new Date(cursor); d.setMonth(d.getMonth() + dir); setCursor(d); };
 
   const handleSave = async (event) => {
     const full = { ...event, createdBy: user?.name || 'You', createdById: user?.id || '' };
-    if (groupId) { await saveEvent(groupId, full); await saveActivity(groupId, { kind: 'event_created', actorName: user?.name || 'You', target: event.title, at: new Date().toISOString() }); }
-    else addEvent(full);
+    if (isGroup && groupId) {
+      await saveEvent(groupId, full);
+      await saveActivity(groupId, { kind: 'event_created', actorName: user?.name || 'You', target: event.title, at: new Date().toISOString() });
+    } else {
+      addPersonalEvent(full);
+    }
     addNotification({ title: 'Event Created', message: `"${event.title}" scheduled`, type: 'info', section: 'Calendar' });
     setShowModal(false);
   };
 
   const handleRemove = async (id) => {
     const ev = events.find(e => e.id === id);
-    if (groupId) await deleteEventFS(groupId, id); else removeEvent(id);
+    if (isGroup && groupId) await deleteEventFS(groupId, id);
+    else removePersonalEvent(id);
     addNotification({ title: 'Event Removed', message: `"${ev?.title || 'Event'}" removed`, type: 'alert', section: 'Calendar' });
     setDetailEvent(null);
   };

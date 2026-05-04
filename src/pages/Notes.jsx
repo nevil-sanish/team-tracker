@@ -6,8 +6,13 @@ import { saveNote, deleteNote as deleteNoteFS, updateNoteDoc, saveNoteFolder, sa
 import Avatar from '../components/Avatar';
 
 export default function Notes() {
-  const { activeGroup, notes, noteFolders, addNote, removeNote, updateNote, addNoteFolder, user, addNotification } = useStore();
-  const groupId = activeGroup?.id;
+  const store = useStore();
+  const { activeGroup, noteFolders, addNote, removeNote, updateNote, addNoteFolder,
+    addPersonalNote, removePersonalNote, updatePersonalNote,
+    getActiveNotes, user, addNotification, mode } = store;
+  const notes = getActiveNotes();
+  const isGroup = mode === 'group' && !!activeGroup;
+  const groupId = isGroup ? activeGroup.id : null;
   const [selectedId, setSelectedId] = useState(notes[0]?.id ?? null);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFolders, setExpandedFolders] = useState({});
@@ -23,29 +28,29 @@ export default function Notes() {
 
   const handleAddNote = async (note) => {
     const full = { ...note, updatedBy: user?.name || 'You' };
-    if (groupId) {
+    if (isGroup && groupId) {
       await saveNote(groupId, full);
       await saveActivity(groupId, { kind: 'note_created', actorName: user?.name || 'You', target: note.title, at: new Date().toISOString() });
-    } else addNote(full);
+    } else addPersonalNote(full);
     addNotification({ title: 'Note Created', message: `"${note.title}" added`, type: 'info', section: 'Notes' });
     setShowNewNote(false);
   };
 
   const handleUpdate = async (id, updates) => {
-    if (groupId) await updateNoteDoc(groupId, id, { ...updates, updatedBy: user?.name || 'You' });
-    else updateNote(id, updates);
+    if (isGroup && groupId) await updateNoteDoc(groupId, id, { ...updates, updatedBy: user?.name || 'You' });
+    else updatePersonalNote(id, updates);
   };
 
   const handleRemove = async (id) => {
     const note = notes.find(n => n.id === id);
-    if (groupId) await deleteNoteFS(groupId, id);
-    else removeNote(id);
+    if (isGroup && groupId) await deleteNoteFS(groupId, id);
+    else removePersonalNote(id);
     addNotification({ title: 'Note Deleted', message: `"${note?.title || 'A note'}" removed`, type: 'alert', section: 'Notes' });
     if (selectedId === id) setSelectedId(null);
   };
 
   const handleAddFolder = async (folder) => {
-    if (groupId) await saveNoteFolder(groupId, folder);
+    if (isGroup && groupId) await saveNoteFolder(groupId, folder);
     else addNoteFolder(folder);
   };
 
