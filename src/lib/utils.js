@@ -20,7 +20,14 @@ export function formatRelative(iso) {
 }
 
 export function toDateKey(d) {
-  return d.toISOString().slice(0, 10);
+  // Use IST (Asia/Kolkata) for all date key calculations
+  const parts = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).split('-');
+  return `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+}
+
+export function nowIST() {
+  // Returns a Date object representing the current time perceived in IST
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
 }
 
 export function generateId() {

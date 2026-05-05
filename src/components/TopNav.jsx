@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, Sun, Moon, Users, X } from 'lucide-react';
+import { Bell, Sun, Moon, Users, X, CheckCheck, Trash2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn, formatRelative } from '../lib/utils';
 import Avatar from './Avatar';
 
 export function TopBar({ title, subtitle, actions }) {
-  const { activeGroup, user, userStatus, notifications, markNotificationRead } = useStore();
+  const { activeGroup, user, userStatus, notifications, markNotificationRead, markAllNotificationsRead, deleteNotification } = useStore();
   const [showNotifs, setShowNotifs] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
@@ -191,10 +191,37 @@ export function TopBar({ title, subtitle, actions }) {
             )}
           </button>
           {showNotifs && (
-            <div className="dropdown-content animate-scale-in" style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, width: 320, maxHeight: 400, overflowY: 'auto', zIndex: 50 }}>
+            <div className="dropdown-content animate-scale-in" style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, width: 340, maxHeight: 440, overflowY: 'auto', zIndex: 50 }}>
               <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Notifications</span>
-                <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{unreadCount} unread</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{unreadCount} unread</span>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); markAllNotificationsRead(); }}
+                      title="Mark all as read"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        border: '1px solid var(--color-border-default)',
+                        background: 'var(--color-bg-tertiary)',
+                        color: 'var(--color-accent)',
+                        fontSize: 9,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                        whiteSpace: 'nowrap',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-accent-soft)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-bg-tertiary)'; }}
+                    >
+                      <CheckCheck size={10} /> Mark all read
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="dropdown-separator" />
               {notifications.length === 0 ? (
@@ -202,17 +229,21 @@ export function TopBar({ title, subtitle, actions }) {
                   No notifications yet
                 </div>
               ) : (
-                notifications.slice(0, 12).map(n => (
-                  <button
+                notifications.slice(0, 20).map(n => (
+                  <div
                     key={n.id}
-                    className="dropdown-item"
-                    onClick={() => markNotificationRead(n.id)}
                     style={{
+                      display: 'flex',
                       alignItems: 'flex-start',
                       padding: '10px 12px',
                       opacity: n.read ? 0.6 : 1,
                       borderLeft: !n.read ? '3px solid var(--color-accent)' : '3px solid transparent',
+                      cursor: 'pointer',
+                      transition: 'background 0.15s',
+                      gap: 8,
                     }}
+                    className="dropdown-item"
+                    onClick={() => markNotificationRead(n.id)}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 2 }}>{n.title}</p>
@@ -232,7 +263,30 @@ export function TopBar({ title, subtitle, actions }) {
                       )}
                       <p style={{ fontSize: 10, color: 'var(--color-text-disabled)', marginTop: 3 }}>{n.time ? formatRelative(n.time) : ''}</p>
                     </div>
-                  </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
+                      title="Delete notification"
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 6,
+                        border: 'none',
+                        background: 'transparent',
+                        color: 'var(--color-text-disabled)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        transition: 'all 0.15s',
+                        marginTop: 1,
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-danger-soft)'; e.currentTarget.style.color = 'var(--color-danger)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
                 ))
               )}
             </div>

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Calendar, CheckSquare, Clock, Users, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { cn, toDateKey, formatRelative, statusMeta, priorityMeta } from '../lib/utils';
+import { cn, toDateKey, formatRelative, statusMeta, priorityMeta, nowIST } from '../lib/utils';
 import { NavLink } from 'react-router-dom';
 import { getSummary } from '../lib/groqService';
 
@@ -21,7 +21,7 @@ export default function Dashboard() {
   const uncompletedTasks = tasks.filter(t => t.status !== 'done');
 
   const greeting = () => {
-    const h = new Date().getHours();
+    const h = nowIST().getHours();
     if (h < 12) return 'Good morning';
     if (h < 18) return 'Good afternoon';
     return 'Good evening';
@@ -49,7 +49,7 @@ export default function Dashboard() {
 
   return (
     <div className="h-full flex flex-col animate-fade-in" style={{ padding: '14px 20px', overflow: 'hidden' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', height: '100%', gap: 10 }}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%', gap: 10 }}>
 
         {/* Hero */}
         <div style={{ padding: '14px 20px', borderRadius: 12, background: 'linear-gradient(135deg, var(--color-bg-elevated), var(--color-bg-tertiary))', border: '1px solid var(--color-border-default)', position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
@@ -85,7 +85,7 @@ export default function Dashboard() {
         </div>
 
         {/* Summary */}
-        <div className="card" style={{ padding: '10px 16px', borderLeft: '3px solid var(--color-accent)', flexShrink: 0 }}>
+        <div className="card" style={{ padding: '14px 20px', borderLeft: '3px solid var(--color-accent)', flexShrink: 0, minHeight: 100 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             <Sparkles size={13} style={{ color: 'var(--color-accent)' }} />
             <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)' }}>AI Summary</h3>

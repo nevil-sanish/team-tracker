@@ -1,16 +1,44 @@
-const API_URL = '/api/chat';
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+const PROXY_URL = '/api/chat';
+const GROQ_DIRECT_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-export async function askGroq(messages, maxTokens = 300) {
-  const res = await fetch(API_URL, {
+async function callProxy(messages, maxTokens) {
+  const res = await fetch(PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages, max_tokens: maxTokens }),
   });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(err || 'API error');
+  if (!res.ok) throw new Error('Proxy failed');
+  return res.json();
+}
+
+async function callDirect(messages, maxTokens) {
+  const res = await fetch(GROQ_DIRECT_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'llama3-8b-8192',
+      messages,
+      max_tokens: maxTokens,
+      temperature: 0.7,
+    }),
+  });
+  if (!res.ok) throw new Error('Groq API error: ' + res.status);
+  return res.json();
+}
+
+export async function askGroq(messages, maxTokens = 300) {
+  let data;
+  try {
+    // Try serverless proxy first (works on Vercel)
+    data = await callProxy(messages, maxTokens);
+  } catch {
+    // Fall back to direct API call (works locally)
+    data = await callDirect(messages, maxTokens);
   }
-  const data = await res.json();
   return data.choices?.[0]?.message?.content || '';
 }
 

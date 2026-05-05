@@ -17,6 +17,7 @@ export default function Notes() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFolders, setExpandedFolders] = useState({});
   const [showNewNote, setShowNewNote] = useState(false);
+  const [showNewFolder, setShowNewFolder] = useState(false);
 
   const selected = notes.find(n => n.id === selectedId) ?? notes[0];
 
@@ -37,8 +38,13 @@ export default function Notes() {
   };
 
   const handleUpdate = async (id, updates) => {
-    if (isGroup && groupId) await updateNoteDoc(groupId, id, { ...updates, updatedBy: user?.name || 'You' });
-    else updatePersonalNote(id, updates);
+    const note = notes.find(n => n.id === id);
+    const prevContributors = note?.contributors || [];
+    const userName = user?.name || 'You';
+    const newContributors = prevContributors.includes(userName) ? prevContributors : [...prevContributors, userName];
+    const payload = { ...updates, updatedBy: userName, contributors: newContributors };
+    if (isGroup && groupId) await updateNoteDoc(groupId, id, payload);
+    else updatePersonalNote(id, payload);
   };
 
   const handleRemove = async (id) => {
@@ -64,6 +70,12 @@ export default function Notes() {
           </div>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', marginBottom: 8 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Folders</span>
+            <button onClick={() => setShowNewFolder(true)} className="btn-ghost btn-icon" style={{ width: 20, height: 20, color: 'var(--color-text-muted)' }}>
+              <Plus size={12} />
+            </button>
+          </div>
           {noteFolders.map(f => {
             const folderNotes = filtered.filter(n => n.folderId === f.id);
             const isExp = expandedFolders[f.id] !== false;
@@ -97,23 +109,24 @@ export default function Notes() {
             </button>
           ))}
         </div>
-        <div style={{ padding: 8, borderTop: '1px solid var(--color-border-subtle)' }}>
-          <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => setShowNewNote(true)}>
-            <Plus size={14} /> New Note
-          </button>
-        </div>
       </aside>
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {selected ? <NoteEditor note={selected} onUpdate={handleUpdate} onRemove={handleRemove} /> : (
-          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--color-bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}><FileText size={24} style={{ color: 'var(--color-text-muted)' }} /></div>
-              <p style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>Select or create a note.</p>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '8px 16px', borderBottom: '1px solid var(--color-border-subtle)', flexShrink: 0 }}>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowNewNote(true)}><Plus size={14} /> New Note</button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {selected ? <NoteEditor note={selected} onUpdate={handleUpdate} onRemove={handleRemove} /> : (
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--color-bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}><FileText size={24} style={{ color: 'var(--color-text-muted)' }} /></div>
+                <p style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>Select or create a note.</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       {showNewNote && <NewNoteModal folders={noteFolders} onClose={() => setShowNewNote(false)} onSave={handleAddNote} />}
+      {showNewFolder && <NewFolderModal onClose={() => setShowNewFolder(false)} onSave={handleAddFolder} />}
     </div>
   );
 }
@@ -123,10 +136,23 @@ function NoteEditor({ note, onUpdate, onRemove }) {
   const [title, setTitle] = useState(note.title);
   React.useEffect(() => { setBody(note.body || ''); setTitle(note.title); }, [note.id]);
   const handleSave = () => onUpdate(note.id, { title, body });
+  
+  const handleDownload = () => {
+    onUpdate(note.id, { title, body });
+    const content = `Title: ${title}\n\n${body}`;
+    const element = document.createElement("a");
+    const file = new Blob([content], { type: 'application/msword' });
+    element.href = URL.createObjectURL(file);
+    element.download = `${title || 'Note'}.doc`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+  const contributors = note.contributors || (note.updatedBy ? [note.updatedBy] : []);
   return (
     <article style={{ maxWidth: 800, margin: '0 auto', padding: '24px 32px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <button className="btn btn-ghost btn-sm" onClick={handleSave} style={{ color: 'var(--color-success)' }}><Download size={13} /> Save</button>
+        <button className="btn btn-ghost btn-sm" onClick={handleDownload} style={{ color: 'var(--color-success)' }}><Download size={13} /> Download</button>
         <div style={{ flex: 1 }} />
         <button className="btn-ghost btn-icon" style={{ width: 28, height: 28, color: 'var(--color-danger)' }} onClick={() => { if (confirm('Delete this note?')) onRemove(note.id); }}><Trash2 size={14} /></button>
       </div>
@@ -136,6 +162,17 @@ function NoteEditor({ note, onUpdate, onRemove }) {
           <Avatar name={note.updatedBy} size="xs" status="online" showStatus />
           <span>Last edited by <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{note.updatedBy}</span> · <span style={{ fontStyle: 'italic' }}>{formatRelative(note.updatedAt)}</span></span>
         </div>
+        {contributors.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Contributors:</span>
+            {contributors.map((name, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 12, background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-subtle)' }}>
+                <Avatar name={name} size="xs" />
+                <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--color-text-secondary)' }}>{name}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </header>
       <textarea value={body} onChange={e => setBody(e.target.value)} onBlur={handleSave} style={{ width: '100%', minHeight: 400, fontSize: 14, lineHeight: 1.7, color: 'var(--color-text-primary)', background: 'transparent', border: 'none', outline: 'none', resize: 'vertical', fontFamily: 'var(--font-sans)' }} />
     </article>
@@ -153,6 +190,36 @@ function NewNoteModal({ folders, onClose, onSave }) {
           <div style={{ marginBottom: 12 }}><label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Title</label><input className="input" placeholder="Note title" value={title} onChange={e => setTitle(e.target.value)} autoFocus /></div>
           {folders.length > 0 && <div style={{ marginBottom: 16 }}><label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Folder</label><select className="input" value={folderId} onChange={e => setFolderId(e.target.value)}>{folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select></div>}
           <div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button><button type="submit" className="btn btn-primary" style={{ flex: 1 }}><Plus size={14} /> Create</button></div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function NewFolderModal({ onClose, onSave }) {
+  const [name, setName] = useState('');
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)' }}>New Folder</h2>
+          <button onClick={onClose} className="btn-ghost btn-icon" style={{ width: 28, height: 28 }}><X size={16} /></button>
+        </div>
+        <form onSubmit={e => {
+          e.preventDefault();
+          if (name.trim()) {
+            onSave({ name: name.trim() });
+            onClose();
+          }
+        }}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Folder Name</label>
+            <input className="input" placeholder="e.g. Planning" value={name} onChange={e => setName(e.target.value)} autoFocus />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button>
+            <button type="submit" className="btn btn-primary" style={{ flex: 1 }}><Plus size={14} /> Create</button>
+          </div>
         </form>
       </div>
     </div>

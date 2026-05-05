@@ -58,6 +58,7 @@ export const useStore = create((set, get) => ({
 
   noteFolders: [],
   setNoteFolders: (folders) => set({ noteFolders: folders }),
+  addNoteFolder: (folder) => set(s => ({ noteFolders: [...s.noteFolders, { ...folder, id: folder.id || generateId() }] })),
   notes: [],
   setNotes: (notes) => set({ notes }),
   addNote: (note) => set(s => ({ notes: [...s.notes, { ...note, id: note.id || generateId(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), versions: 1 }] })),
@@ -65,7 +66,10 @@ export const useStore = create((set, get) => ({
   updateNote: (id, updates) => set(s => ({
     notes: s.notes.map(n => n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString(), versions: (n.versions || 0) + 1 } : n)
   })),
-  addNoteFolder: (folder) => set(s => ({ noteFolders: [...s.noteFolders, { ...folder, id: folder.id || generateId() }] })),
+
+  resourceFolders: [],
+  setResourceFolders: (folders) => set({ resourceFolders: folders }),
+  addResourceFolder: (folder) => set(s => ({ resourceFolders: [...s.resourceFolders, { ...folder, id: folder.id || generateId() }] })),
 
   channels: [],
   setChannels: (channels) => set({ channels }),
@@ -97,6 +101,12 @@ export const useStore = create((set, get) => ({
   markNotificationRead: (id) => set(s => ({
     notifications: s.notifications.map(n => n.id === id ? { ...n, read: true } : n)
   })),
+  markAllNotificationsRead: () => set(s => ({
+    notifications: s.notifications.map(n => ({ ...n, read: true }))
+  })),
+  deleteNotification: (id) => set(s => ({
+    notifications: s.notifications.filter(n => n.id !== id)
+  })),
   addNotification: (notif) => set(s => ({
     notifications: [{ ...notif, id: notif.id || generateId(), read: false, time: new Date().toISOString() }, ...s.notifications]
   })),
@@ -107,7 +117,7 @@ export const useStore = create((set, get) => ({
 
   clearGroupData: () => set({
     events: [], tasks: [], notes: [], noteFolders: [],
-    channels: [], messages: [], activities: [], resources: [],
+    channels: [], messages: [], activities: [], resources: [], resourceFolders: [],
     notifications: [], calls: [],
   }),
 
@@ -125,6 +135,7 @@ export const useStore = create((set, get) => ({
 
   addPersonalEvent: (event) => { set(s => ({ personalEvents: [...s.personalEvents, { ...event, id: event.id || generateId() }] })); get()._savePersonal(); },
   removePersonalEvent: (id) => { set(s => ({ personalEvents: s.personalEvents.filter(e => e.id !== id) })); get()._savePersonal(); },
+  updatePersonalEvent: (id, updates) => { set(s => ({ personalEvents: s.personalEvents.map(e => e.id === id ? { ...e, ...updates } : e) })); get()._savePersonal(); },
 
   addPersonalTask: (task) => { set(s => ({ personalTasks: [...s.personalTasks, { ...task, id: task.id || generateId(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }] })); get()._savePersonal(); },
   removePersonalTask: (id) => { set(s => ({ personalTasks: s.personalTasks.filter(t => t.id !== id) })); get()._savePersonal(); },

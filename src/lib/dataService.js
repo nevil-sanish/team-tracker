@@ -141,8 +141,29 @@ export async function saveNoteFolder(groupId, folder) {
   return { ...folder, id };
 }
 
+export async function deleteNoteFolder(groupId, folderId) {
+  await deleteDoc(groupDocRef(groupId, 'noteFolders', folderId));
+}
+
+export async function saveResourceFolder(groupId, folder) {
+  const id = folder.id || generateId();
+  await setDoc(groupDocRef(groupId, 'resourceFolders', id), { ...folder, id });
+  return { ...folder, id };
+}
+
+export async function deleteResourceFolder(groupId, folderId) {
+  await deleteDoc(groupDocRef(groupId, 'resourceFolders', folderId));
+}
+
 export function subscribeNoteFolders(groupId, callback) {
   return onSnapshot(groupCol(groupId, 'noteFolders'), (snap) => {
+    const folders = snap.docs.map(d => d.data());
+    callback(folders);
+  });
+}
+
+export function subscribeResourceFolders(groupId, callback) {
+  return onSnapshot(groupCol(groupId, 'resourceFolders'), (snap) => {
     const folders = snap.docs.map(d => d.data());
     callback(folders);
   });
@@ -229,4 +250,7 @@ export async function initGroupDefaults(groupId) {
 
   // Create default note folder
   await saveNoteFolder(groupId, { id: 'nf_general', name: 'General' });
+
+  // Create default resource folder
+  await saveResourceFolder(groupId, { id: 'rf_general', name: 'General' });
 }

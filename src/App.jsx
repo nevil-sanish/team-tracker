@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import AiChat from './components/AiChat';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopNav';
@@ -11,7 +10,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { subscribeToGroup, leaveGroup as leaveGroupFS, updateMemberStatus, getUserGroups } from './lib/groupService';
 import {
   subscribeTasks, subscribeEvents, subscribeNotes,
-  subscribeNoteFolders, subscribeChannels, subscribeMessages,
+  subscribeNoteFolders, subscribeResourceFolders, subscribeChannels, subscribeMessages,
   subscribeActivities, subscribeResources,
 } from './lib/dataService';
 
@@ -28,7 +27,7 @@ import ResourceHub from './pages/ResourceHub';
 export default function App() {
   const {
     user, setUser, activeGroup, setActiveGroup, showGroupSetup,
-    setMode, setTasks, setEvents, setNotes, setNoteFolders,
+    setMode, setTasks, setEvents, setNotes, setNoteFolders, setResourceFolders,
     setChannels, setMessages, setActivities, setResources, clearGroupData,
   } = useStore();
   const [loading, setLoading] = useState(true);
@@ -94,6 +93,7 @@ export default function App() {
       subscribeEvents(gid, setEvents),
       subscribeNotes(gid, setNotes),
       subscribeNoteFolders(gid, setNoteFolders),
+      subscribeResourceFolders(gid, setResourceFolders),
       subscribeChannels(gid, setChannels),
       subscribeMessages(gid, setMessages),
       subscribeActivities(gid, setActivities),
@@ -223,7 +223,6 @@ export default function App() {
       </div>
 
       {showGroupSetup && <GroupSetup />}
-      <AiChat />
     </BrowserRouter>
   );
 }
