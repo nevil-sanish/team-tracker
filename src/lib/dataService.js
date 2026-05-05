@@ -7,48 +7,45 @@ import { db, storage } from './firebase';
 import { generateId } from './utils';
 
 /**
- * Upload a file to Firebase Storage under a group's resources folder.
+ * Upload a file as a base64 string to be stored directly in Firestore.
+ * Note: Firestore has a strict 1MB document size limit. 
+ * Base64 adds ~33% overhead, so the raw file must be under ~750KB.
  * Returns { url, storagePath, fileName, fileSize, fileType }.
  */
 export async function uploadResourceFile(groupId, file, onProgress) {
-  const fileId = generateId();
-  const ext = file.name.split('.').pop();
-  const storagePath = `groups/${groupId}/resources/${fileId}.${ext}`;
-  const storageRef = ref(storage, storagePath);
-
   return new Promise((resolve, reject) => {
-    const uploadTask = uploadBytesResumable(storageRef, file);
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-        if (onProgress) onProgress(progress);
-      },
-      (error) => reject(error),
-      async () => {
-        const url = await getDownloadURL(uploadTask.snapshot.ref);
-        resolve({
-          url,
-          storagePath,
-          fileName: file.name,
-          fileSize: file.size,
-          fileType: file.type,
-        });
-      }
-    );
+    if (onProgress) onProgress(10);
+    
+    // Set limit slightly under 750KB to safely fit within 1MB after Base64 encoding
+    const MAX_SIZE = 750 * 1024;
+    if (file.size > MAX_SIZE) {
+      return reject(new Error(`File is too large (${(file.size/1024).toFixed(1)}KB). Maximum size for the free database is 750KB. For larger files, please use Links.`));
+    }
+
+    const reader = new FileReader();
+    
+    reader.onload = () => {
+      if (onProgress) onProgress(100);
+      resolve({
+        url: reader.result, // Data URL (base64)
+        storagePath: null, // No storage path needed
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+      });
+    };
+    
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    
+    reader.readAsDataURL(file);
   });
 }
 
 /**
- * Delete a file from Firebase Storage.
+ * Delete a file from Firebase Storage (No-op now since we use base64).
  */
 export async function deleteStorageFile(storagePath) {
   if (!storagePath) return;
-  try {
-    const storageRef = ref(storage, storagePath);
-    await deleteObject(storageRef);
-  } catch (err) {
-    console.warn('Could not delete storage file:', err.message);
-  }
 }
 
 /**

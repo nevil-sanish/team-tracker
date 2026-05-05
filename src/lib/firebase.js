@@ -19,6 +19,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const rtdb = getDatabase(app);
 const storage = getStorage(app);
+storage.maxUploadRetryTime = 10000; // 10 seconds
 
 const provider = new GoogleAuthProvider();
 

@@ -24,8 +24,8 @@ const groupItems = [
   { icon: CheckSquare, label: 'Tasks', path: '/tasks' },
   { icon: FileText, label: 'Notes', path: '/notes' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
-  { icon: Activity, label: 'Activity', path: '/activity' },
   { icon: Folder, label: 'Resources', path: '/resources' },
+  { icon: Activity, label: 'Activity', path: '/activity' },
 ];
 
 export function Sidebar() {

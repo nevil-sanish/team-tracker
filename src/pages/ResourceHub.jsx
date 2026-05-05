@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Link as LinkIcon, FileText, Code, Folder, Plus, X, Trash2, Upload, Image, Film, File, Download, ExternalLink, Loader2, ChevronDown, Filter } from 'lucide-react';
+import { Link as LinkIcon, FileText, Code, Folder, Plus, X, Trash2, Upload, Image, Film, File, Download, ExternalLink, Loader2, ChevronDown, Filter, Search, Edit2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { formatRelative } from '../lib/utils';
-import { saveResource, deleteResource as deleteResourceFS, saveActivity, uploadResourceFile, deleteStorageFile } from '../lib/dataService';
+import { saveResource, deleteResource as deleteResourceFS, saveActivity, uploadResourceFile, deleteStorageFile, saveResourceFolder, deleteResourceFolder } from '../lib/dataService';
 import Avatar from '../components/Avatar';
 
 function formatFileSize(bytes) {
@@ -36,19 +36,9 @@ export default function ResourceHub() {
   const [selectedFolderId, setSelectedFolderId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [preview, setPreview] = useState(null);
+  const [expandedFolders, setExpandedFolders] = useState({});
+  const [editingResource, setEditingResource] = useState(null);
   const groupId = activeGroup?.id;
-
-  if (!activeGroup) {
-    return (
-      <div className="h-full flex items-center justify-center animate-fade-in">
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--color-bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}><Folder size={24} style={{ color: 'var(--color-text-muted)' }} /></div>
-          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 4 }}>Resource Hub</p>
-          <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Join a group to access shared resources.</p>
-        </div>
-      </div>
-    );
-  }
 
   const folders = resourceFolders || [];
   const activeFolderId = selectedFolderId || (folders.length > 0 ? folders[0].id : null);
@@ -64,14 +54,33 @@ export default function ResourceHub() {
     return items;
   }, [resources, activeFolderName, searchQuery]);
 
+  if (!activeGroup) {
+    return (
+      <div className="h-full flex items-center justify-center animate-fade-in">
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--color-bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}><Folder size={24} style={{ color: 'var(--color-text-muted)' }} /></div>
+          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 4 }}>Resource Hub</p>
+          <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Join a group to access shared resources.</p>
+        </div>
+      </div>
+    );
+  }
+
   const handleAdd = async (res) => {
-    const full = { ...res, addedByName: user?.name || 'You', category: activeFolderName };
+    const isUpdate = !!res.id;
+    const full = { ...res, addedByName: user?.name || 'You' };
     if (groupId) {
       await saveResource(groupId, full);
-      await saveActivity(groupId, { kind: 'resource_added', actorName: user?.name || 'You', target: res.title || res.fileName, at: new Date().toISOString() });
-    } else addResource(full);
-    addNotification({ title: 'Resource Added', message: `"${res.title || res.fileName}" added`, type: 'info', section: 'Resources' });
+      if (!isUpdate) {
+        await saveActivity(groupId, { kind: 'resource_added', actorName: user?.name || 'You', target: res.title || res.fileName, at: new Date().toISOString() });
+      }
+    } else {
+      // For local development without active group saving
+      addResource(full);
+    }
+    addNotification({ title: isUpdate ? 'Resource Updated' : 'Resource Added', message: `"${res.title || res.fileName}" ${isUpdate ? 'updated' : 'added'}`, type: 'info', section: 'Resources' });
     setShowNew(false);
+    setEditingResource(null);
   };
 
   const handleRemove = async (id) => {
@@ -171,7 +180,7 @@ export default function ResourceHub() {
          </div>
          
          <div style={{ flex: 1, padding: 24, overflowX: 'auto' }}>
-            <div style={{ display: 'flex', gap: 24, height: '100%', minWidth: 900 }}>
+            <div style={{ display: 'flex', gap: 24, height: '100%', minWidth: 600 }}>
               
               {/* Column 1: Links */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--color-bg-secondary)', borderRadius: 12, border: '1px solid var(--color-border-subtle)', overflow: 'hidden' }}>
@@ -180,9 +189,12 @@ export default function ResourceHub() {
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {links.length === 0 ? <p style={{ fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center', padding: 24 }}>No links</p> : links.map(r => (
-                    <div key={r.id} className="card" style={{ padding: 12, position: 'relative' }}>
-                      <button onClick={() => handleRemove(r.id)} className="btn-ghost btn-icon" style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, color: 'var(--color-danger)' }}><Trash2 size={12}/></button>
-                      <h4 style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 4, paddingRight: 24 }}>{r.title}</h4>
+                    <div key={r.id} className="card group" style={{ padding: 12, position: 'relative' }}>
+                      <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
+                        <button onClick={() => setEditingResource(r)} className="btn-ghost btn-icon" style={{ width: 24, height: 24, color: 'var(--color-text-muted)' }}><Edit2 size={12}/></button>
+                        <button onClick={() => handleRemove(r.id)} className="btn-ghost btn-icon" style={{ width: 24, height: 24, color: 'var(--color-danger)' }}><Trash2 size={12}/></button>
+                      </div>
+                      <h4 style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 4, paddingRight: 50 }}>{r.title}</h4>
                       <a href={/^https?:\/\//i.test(r.url) ? r.url : `https://${r.url}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--color-info)', textDecoration: 'underline', wordBreak: 'break-all', display: 'block', marginBottom: 8 }}>{r.url}</a>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Avatar name={r.addedByName} size="xs" />
@@ -190,33 +202,6 @@ export default function ResourceHub() {
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-
-              {/* Column 2: Files */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--color-bg-secondary)', borderRadius: 12, border: '1px solid var(--color-border-subtle)', overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-elevated)' }}>
-                  <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>Files</h3>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {files.length === 0 ? <p style={{ fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center', padding: 24 }}>No files</p> : files.map(r => {
-                    const isMedia = r.fileType?.startsWith('image/') || r.fileType?.startsWith('video/');
-                    return (
-                      <div key={r.id} className="card" style={{ padding: 12, position: 'relative' }}>
-                        <button onClick={() => handleRemove(r.id)} className="btn-ghost btn-icon" style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, color: 'var(--color-danger)' }}><Trash2 size={12}/></button>
-                        <h4 style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 8, paddingRight: 24, wordBreak: 'break-word' }}>{r.fileName || r.title}</h4>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Avatar name={r.addedByName} size="xs" />
-                            <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{r.addedByName}</span>
-                          </div>
-                          <button className="btn btn-secondary btn-sm" onClick={() => { if (r.url) { isMedia ? setPreview(r) : window.open(r.url, '_blank', 'noopener,noreferrer'); } }}>
-                            <Download size={12} /> {isMedia ? 'View' : 'Download'}
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
                 </div>
               </div>
 
@@ -229,9 +214,12 @@ export default function ResourceHub() {
                   {snippets.length === 0 ? <p style={{ fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center', padding: 24 }}>No snippets</p> : snippets.map(r => {
                     const isExpanded = expandedFolders[`snippet_${r.id}`];
                     return (
-                      <div key={r.id} className="card" style={{ padding: 12, position: 'relative', cursor: 'pointer' }} onClick={() => toggleSnippet(r.id)}>
-                        <button onClick={(e) => { e.stopPropagation(); handleRemove(r.id); }} className="btn-ghost btn-icon" style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, color: 'var(--color-danger)' }}><Trash2 size={12}/></button>
-                        <h4 style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 8, paddingRight: 24 }}>{r.title}</h4>
+                      <div key={r.id} className="card group" style={{ padding: 12, position: 'relative', cursor: 'pointer' }} onClick={() => toggleSnippet(r.id)}>
+                        <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
+                          <button onClick={(e) => { e.stopPropagation(); setEditingResource(r); }} className="btn-ghost btn-icon" style={{ width: 24, height: 24, color: 'var(--color-text-muted)' }}><Edit2 size={12}/></button>
+                          <button onClick={(e) => { e.stopPropagation(); handleRemove(r.id); }} className="btn-ghost btn-icon" style={{ width: 24, height: 24, color: 'var(--color-danger)' }}><Trash2 size={12}/></button>
+                        </div>
+                        <h4 style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 8, paddingRight: 50 }}>{r.title}</h4>
                         <pre style={{ fontSize: 11, fontFamily: 'var(--font-mono)', background: 'var(--color-bg-tertiary)', padding: 8, borderRadius: 6, color: 'var(--color-text-secondary)', whiteSpace: 'pre-wrap', maxHeight: isExpanded ? 'none' : 60, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {r.body}
                         </pre>
@@ -249,7 +237,7 @@ export default function ResourceHub() {
          </div>
       </div>
 
-      {showNew && <NewResourceModal groupId={groupId} onClose={() => setShowNew(false)} onSave={handleAdd} defaultCategory={activeFolderName} />}
+      {(showNew || editingResource) && <NewResourceModal groupId={groupId} onClose={() => { setShowNew(false); setEditingResource(null); }} onSave={handleAdd} defaultCategory={activeFolderName} folders={folders} initialData={editingResource} />}
       {preview && <PreviewModal resource={preview} onClose={() => setPreview(null)} />}
     </div>
   );
@@ -273,46 +261,31 @@ function PreviewModal({ resource, onClose }) {
   );
 }
 
-function NewResourceModal({ groupId, onClose, onSave, defaultCategory }) {
-  const [tab, setTab] = useState('link');
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState(defaultCategory || 'General');
-  const [url, setUrl] = useState('');
-  const [body, setBody] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+function NewResourceModal({ groupId, onClose, onSave, defaultCategory, folders = [], initialData = null }) {
+  const isEditing = !!initialData;
+  const initialTab = initialData ? (initialData.type === 'link' ? 'link' : 'snippet') : 'link';
+  const [tab, setTab] = useState(initialTab);
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [category, setCategory] = useState(initialData?.category || defaultCategory || (folders.length > 0 ? folders[0].name : 'General'));
+  const [url, setUrl] = useState(initialData?.url || '');
+  const [body, setBody] = useState(initialData?.body || '');
   const [error, setError] = useState('');
-  const fileRef = useRef(null);
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!groupId) { setError('Join a group to upload files'); return; }
-    setUploading(true); setProgress(0); setError('');
-    try {
-      const result = await uploadResourceFile(groupId, file, setProgress);
-      onSave({
-        title: title.trim() || file.name,
-        type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file',
-        category, url: result.url, storagePath: result.storagePath,
-        fileName: result.fileName, fileSize: result.fileSize, fileType: result.fileType,
-        addedAt: new Date().toISOString(),
-      });
-    } catch (err) { setError(err.message || 'Upload failed'); }
-    setUploading(false);
-  };
+  const displayFolders = folders.length > 0 ? folders : [{ id: 'default', name: 'General' }];
 
-  const handleLinkSave = (e) => {
+  const handleSave = (e) => {
     e.preventDefault();
     if (!title.trim() && !url.trim() && tab === 'link') return;
     if (!title.trim() && !body.trim() && tab === 'snippet') return;
     
     const payload = {
+      ...(initialData || {}),
       title: title.trim() || (tab === 'link' ? url.trim() : 'Snippet'),
-      type: tab === 'link' ? 'link' : 'snippet',
       category: category || 'General',
-      addedAt: new Date().toISOString(),
+      addedAt: initialData?.addedAt || new Date().toISOString(),
+      type: tab === 'link' ? 'link' : 'snippet'
     };
+    
     if (tab === 'link') payload.url = url.trim();
     if (tab === 'snippet') payload.body = body.trim();
 
@@ -323,89 +296,64 @@ function NewResourceModal({ groupId, onClose, onSave, defaultCategory }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)' }}>Add Resource</h2>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)' }}>{isEditing ? 'Edit Resource' : 'Add Resource'}</h2>
           <button onClick={onClose} className="btn-ghost btn-icon" style={{ width: 28, height: 28 }}><X size={16} /></button>
         </div>
 
-        <div className="tab-group" style={{ marginBottom: 16 }}>
-          {[
-            { id: 'link', label: 'Link', icon: LinkIcon },
-            { id: 'file', label: 'File Upload', icon: Upload },
-            { id: 'snippet', label: 'Snippet', icon: Code },
-          ].map(t => (
-            <button key={t.id} className={`tab-item ${tab === t.id ? 'active' : ''}`} onClick={() => { setTab(t.id); setError(''); }} style={{ flex: 1, fontSize: 11, padding: '4px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-              <t.icon size={12} /> {t.label}
-            </button>
-          ))}
-        </div>
+        {!isEditing && (
+          <div className="tab-group" style={{ marginBottom: 16 }}>
+            {[
+              { id: 'link', label: 'Link', icon: LinkIcon },
+              { id: 'snippet', label: 'Snippet', icon: Code },
+            ].map(t => (
+              <button key={t.id} className={`tab-item ${tab === t.id ? 'active' : ''}`} onClick={() => { setTab(t.id); setError(''); }} style={{ flex: 1, fontSize: 11, padding: '4px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                <t.icon size={12} /> {t.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div style={{ marginBottom: 12 }}>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Title</label>
           <input className="input" placeholder="Resource name" value={title} onChange={e => setTitle(e.target.value)} autoFocus />
         </div>
         <div style={{ marginBottom: 12 }}>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Section</label>
-          <input className="input" placeholder="e.g. Design, Documents" value={category} onChange={e => setCategory(e.target.value)} />
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Folder Section</label>
+          <select className="input" value={category} onChange={e => setCategory(e.target.value)}>
+            {displayFolders.map(f => (
+              <option key={f.id} value={f.name}>{f.name}</option>
+            ))}
+          </select>
         </div>
 
         {tab === 'link' && (
-          <form onSubmit={handleLinkSave}>
+          <form onSubmit={handleSave}>
             <div style={{ marginBottom: 12 }}>
+              <div style={{ padding: '8px 12px', background: 'var(--color-bg-tertiary)', borderRadius: 8, marginBottom: 12, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <LinkIcon size={14} style={{ color: 'var(--color-info)', marginTop: 2, flexShrink: 0 }} />
+                <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
+                  To share a file, please upload it to Google Drive or Dropbox and paste the shareable link below.
+                </p>
+              </div>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>URL</label>
               <input className="input" placeholder="https://..." value={url} onChange={e => setUrl(e.target.value)} />
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button>
-              <button type="submit" className="btn btn-primary" style={{ flex: 1 }}><Plus size={14} /> Add Link</button>
+              <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{isEditing ? 'Save Changes' : <><Plus size={14} /> Add Link</>}</button>
             </div>
           </form>
         )}
 
-        {tab === 'file' && (
-          <div>
-            <input ref={fileRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv" style={{ display: 'none' }} onChange={handleFileUpload} />
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              style={{
-                width: '100%', padding: '28px 16px',
-                border: '2px dashed var(--color-border-default)', borderRadius: 12,
-                background: 'var(--color-bg-tertiary)', cursor: uploading ? 'default' : 'pointer',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all 0.2s',
-              }}
-              className="hover:bg-[var(--color-bg-hover)]"
-            >
-              {uploading ? (
-                <>
-                  <Loader2 size={24} style={{ color: 'var(--color-accent)' }} className="animate-spin" />
-                  <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Uploading... {progress}%</span>
-                  <div style={{ width: '100%', height: 4, background: 'var(--color-bg-hover)', borderRadius: 2, overflow: 'hidden', maxWidth: 200 }}>
-                    <div style={{ height: '100%', width: `${progress}%`, background: 'var(--color-accent)', borderRadius: 2, transition: 'width 0.3s' }} />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Upload size={24} style={{ color: 'var(--color-text-muted)' }} />
-                  <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Click to upload a file</span>
-                  <span style={{ fontSize: 10, color: 'var(--color-text-disabled)' }}>Images, videos, PDFs, documents, and more</span>
-                </>
-              )}
-            </button>
-            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <button onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button>
-            </div>
-          </div>
-        )}
-
         {tab === 'snippet' && (
-          <form onSubmit={handleLinkSave}>
+          <form onSubmit={handleSave}>
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Content</label>
               <textarea className="input" placeholder="Paste code or text..." value={body} onChange={e => setBody(e.target.value)} rows={4} style={{ fontFamily: 'var(--font-mono)', fontSize: 12, resize: 'vertical' }} />
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button>
-              <button type="submit" className="btn btn-primary" style={{ flex: 1 }}><Plus size={14} /> Add Snippet</button>
+              <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{isEditing ? 'Save Changes' : <><Plus size={14} /> Add Snippet</>}</button>
             </div>
           </form>
         )}
