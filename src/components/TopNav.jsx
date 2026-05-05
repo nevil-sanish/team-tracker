@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, Sun, Moon, Users, X, CheckCheck, Trash2 } from 'lucide-react';
+import { Bell, Sun, Moon, Users, X, CheckCheck, Trash2, UserMinus, Shield } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn, formatRelative } from '../lib/utils';
 import Avatar from './Avatar';
+import { removeMember, promoteToAdmin } from '../lib/groupService';
 
 export function TopBar({ title, subtitle, actions }) {
   const { activeGroup, user, userStatus, notifications, markNotificationRead, markAllNotificationsRead, deleteNotification } = useStore();
@@ -18,6 +19,31 @@ export function TopBar({ title, subtitle, actions }) {
   const membersRef = useRef(null);
 
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  const currentUserIsAdmin = activeGroup && (
+    activeGroup.createdBy === user?.id || 
+    activeGroup.members?.find(m => m.id === user?.id)?.isAdmin
+  );
+
+  const handleRemoveMember = async (mId) => {
+    if (window.confirm('Are you sure you want to remove this member?')) {
+      try {
+        await removeMember(activeGroup.id, mId);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const handlePromote = async (mId) => {
+    if (window.confirm('Are you sure you want to promote this member to admin?')) {
+      try {
+        await promoteToAdmin(activeGroup.id, mId);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
 
   // Apply theme
   useEffect(() => {
@@ -129,27 +155,86 @@ export function TopBar({ title, subtitle, actions }) {
                   <div
                     key={m.id}
                     className="dropdown-item"
-                    style={{ cursor: 'default', padding: '8px 12px' }}
+                    style={{ cursor: 'default', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch' }}
                   >
-                    <Avatar name={m.name} avatar={m.avatar} size="sm" status={m.status || 'online'} showStatus />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{
-                        fontSize: 12,
-                        fontWeight: m.id === user?.id ? 700 : 500,
-                        color: m.id === user?.id ? 'var(--color-accent)' : 'var(--color-text-primary)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {m.name}{m.id === user?.id ? ' (you)' : ''}
-                      </p>
-                      <p style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{m.email}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+                      <Avatar name={m.name} avatar={m.avatar} size="sm" status={m.status || 'online'} showStatus />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{
+                          fontSize: 12,
+                          fontWeight: m.id === user?.id ? 700 : 500,
+                          color: m.id === user?.id ? 'var(--color-accent)' : 'var(--color-text-primary)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4
+                        }}>
+                          {m.name}{m.id === user?.id ? ' (you)' : ''}
+                          {(m.isAdmin || activeGroup.createdBy === m.id) && <Shield size={10} color="var(--color-accent)" />}
+                        </p>
+                        <p style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{m.email}</p>
+                      </div>
+                      <div style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: (m.status === 'online' || !m.status) ? 'var(--color-status-online)' : 'var(--color-status-offline)',
+                        flexShrink: 0,
+                      }} />
                     </div>
-                    <div style={{
-                      width: 8, height: 8, borderRadius: '50%',
-                      background: (m.status === 'online' || !m.status) ? 'var(--color-status-online)' : 'var(--color-status-offline)',
-                      flexShrink: 0,
-                    }} />
+
+                    {currentUserIsAdmin && m.id !== user?.id && (
+                      <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                        {!m.isAdmin && activeGroup.createdBy !== m.id && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handlePromote(m.id); }}
+                            style={{
+                              flex: 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 4,
+                              padding: '6px 0',
+                              fontSize: 10,
+                              fontWeight: 600,
+                              background: 'var(--color-bg-tertiary)',
+                              color: 'var(--color-text-primary)',
+                              border: '1px solid var(--color-border-default)',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-bg-secondary)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-bg-tertiary)'; }}
+                          >
+                            <Shield size={10} /> Promote
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleRemoveMember(m.id); }}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4,
+                            padding: '6px 0',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            background: 'var(--color-danger-soft)',
+                            color: 'var(--color-danger)',
+                            border: '1px solid transparent',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.opacity = '0.8'; }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                        >
+                          <UserMinus size={10} /> Remove
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

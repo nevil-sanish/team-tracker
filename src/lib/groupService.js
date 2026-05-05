@@ -30,6 +30,7 @@ export async function createGroup(name, password, user) {
     avatar: user.avatar || null,
     status: 'online',
     joinedAt: new Date().toISOString(),
+    isAdmin: true,
   };
   const group = {
     id: groupId,
@@ -84,6 +85,7 @@ export async function joinGroup(name, password, user) {
       avatar: user.avatar || null,
       status: 'online',
       joinedAt: new Date().toISOString(),
+      isAdmin: false,
     };
     updatedMembers = [...currentMembers, newMember];
   } else {
@@ -111,6 +113,26 @@ export async function leaveGroup(groupId, userId) {
 
   const data = snap.data();
   const updatedMembers = (data.members || []).filter(m => m.id !== userId);
+  await updateDoc(groupRef, { members: updatedMembers });
+}
+
+/**
+ * Remove a member from the group (same underlying logic as leaveGroup).
+ */
+export const removeMember = leaveGroup;
+
+/**
+ * Promote a member to admin.
+ */
+export async function promoteToAdmin(groupId, userId) {
+  const groupRef = doc(db, GROUPS_COL, groupId);
+  const snap = await getDoc(groupRef);
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+  const updatedMembers = (data.members || []).map(m =>
+    m.id === userId ? { ...m, isAdmin: true } : m
+  );
   await updateDoc(groupRef, { members: updatedMembers });
 }
 
