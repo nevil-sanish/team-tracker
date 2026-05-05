@@ -1,21 +1,15 @@
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const API_URL = '/api/chat';
 
 export async function askGroq(messages, maxTokens = 300) {
-  const res = await fetch(GROQ_URL, {
+  const res = await fetch(API_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'llama3-8b-8192',
-      messages,
-      max_tokens: maxTokens,
-      temperature: 0.7,
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, max_tokens: maxTokens }),
   });
-  if (!res.ok) throw new Error('Groq API error');
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err || 'API error');
+  }
   const data = await res.json();
   return data.choices?.[0]?.message?.content || '';
 }

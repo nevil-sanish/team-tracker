@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, Search, Sun, Moon, Users, X } from 'lucide-react';
+import { Bell, Sun, Moon, Users, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn, formatRelative } from '../lib/utils';
 import Avatar from './Avatar';
 
 export function TopBar({ title, subtitle, actions }) {
   const { activeGroup, user, userStatus, notifications, markNotificationRead } = useStore();
-  const [query, setQuery] = useState('');
   const [showNotifs, setShowNotifs] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
@@ -52,7 +51,7 @@ export function TopBar({ title, subtitle, actions }) {
         zIndex: 10,
       }}
     >
-      {/* Left: Title + Search */}
+      {/* Left: Title */}
       <div className="flex items-center gap-5 min-w-0 flex-1">
         <div style={{ minWidth: 0 }}>
           <h1 style={{
@@ -72,34 +71,6 @@ export function TopBar({ title, subtitle, actions }) {
               {subtitle}
             </p>
           )}
-        </div>
-
-        {/* Search */}
-        <div className="hidden md:flex flex-1 max-w-md" style={{ position: 'relative' }}>
-          <Search
-            size={15}
-            style={{
-              position: 'absolute',
-              left: 12,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--color-text-disabled)',
-            }}
-          />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search..."
-            className="input"
-            style={{
-              paddingLeft: 36,
-              height: 34,
-              fontSize: 12,
-              borderRadius: 10,
-              background: 'var(--color-bg-tertiary)',
-            }}
-          />
         </div>
       </div>
 
