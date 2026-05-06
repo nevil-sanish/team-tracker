@@ -37,6 +37,7 @@ export async function createGroup(name, password, user) {
     name,
     password,
     members: [member],
+    memberIds: [user.id],
     createdBy: user.id,
     createdAt: new Date().toISOString(),
   };
@@ -98,9 +99,10 @@ export async function joinGroup(name, password, user) {
   }
 
   // Write the full array directly (not arrayUnion)
-  await updateDoc(groupRef, { members: updatedMembers });
+  const memberIds = updatedMembers.map(m => m.id);
+  await updateDoc(groupRef, { members: updatedMembers, memberIds });
 
-  return { ...groupData, members: updatedMembers };
+  return { ...groupData, members: updatedMembers, memberIds };
 }
 
 /**
@@ -113,7 +115,8 @@ export async function leaveGroup(groupId, userId) {
 
   const data = snap.data();
   const updatedMembers = (data.members || []).filter(m => m.id !== userId);
-  await updateDoc(groupRef, { members: updatedMembers });
+  const memberIds = updatedMembers.map(m => m.id);
+  await updateDoc(groupRef, { members: updatedMembers, memberIds });
 }
 
 /**
