@@ -12,6 +12,32 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or invalid authorization header' });
+  }
+  
+  const idToken = authHeader.split('Bearer ')[1];
+  const FIREBASE_API_KEY = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
+
+  if (!FIREBASE_API_KEY) {
+    return res.status(500).json({ error: 'Firebase API key not configured for auth verification' });
+  }
+
+  try {
+    const verifyRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken })
+    });
+    const verifyData = await verifyRes.json();
+    if (verifyData.error) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to verify authentication token' });
+  }
+
   const GROQ_API_KEY = process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY;
 
   if (!GROQ_API_KEY) {

@@ -1,11 +1,17 @@
+import { auth } from './firebase';
+
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const PROXY_URL = '/api/chat';
 const GROQ_DIRECT_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 async function callProxy(messages, maxTokens) {
+  const token = await auth.currentUser?.getIdToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const res = await fetch(PROXY_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ messages, max_tokens: maxTokens }),
   });
   if (!res.ok) throw new Error('Proxy failed');
