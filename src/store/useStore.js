@@ -59,6 +59,8 @@ export const useStore = create((set, get) => ({
   noteFolders: [],
   setNoteFolders: (folders) => set({ noteFolders: folders }),
   addNoteFolder: (folder) => set(s => ({ noteFolders: [...s.noteFolders, { ...folder, id: folder.id || generateId() }] })),
+  removeNoteFolder: (id) => set(s => ({ noteFolders: s.noteFolders.filter(f => f.id !== id) })),
+  updateNoteFolder: (id, updates) => set(s => ({ noteFolders: s.noteFolders.map(f => f.id === id ? { ...f, ...updates } : f) })),
   notes: [],
   setNotes: (notes) => set({ notes }),
   addNote: (note) => set(s => ({ notes: [...s.notes, { ...note, id: note.id || generateId(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), versions: 1 }] })),

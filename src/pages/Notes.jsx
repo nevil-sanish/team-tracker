@@ -1,13 +1,13 @@
-import React, { useState, useMemo } from 'react';
-import { Folder, FileText, PenTool, Type, Layers, Search, Plus, X, Bold, Italic, Underline, List, ListOrdered, Code, Link, Image, Undo2, Redo2, History, Download, Trash2, Clock, Pencil } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Folder, FileText, PenTool, Type, Layers, Search, Plus, X, Bold, Italic, Underline, List, ListOrdered, Code, Link, Image, Undo2, Redo2, History, Download, Trash2, Clock, Pencil, MoreVertical } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { formatRelative } from '../lib/utils';
-import { saveNote, deleteNote as deleteNoteFS, updateNoteDoc, saveNoteFolder, saveActivity } from '../lib/dataService';
+import { saveNote, deleteNote as deleteNoteFS, updateNoteDoc, saveNoteFolder, deleteNoteFolder, saveActivity } from '../lib/dataService';
 import Avatar from '../components/Avatar';
 
 export default function Notes() {
   const store = useStore();
-  const { activeGroup, noteFolders, addNote, removeNote, updateNote, addNoteFolder,
+  const { activeGroup, noteFolders, addNote, removeNote, updateNote, addNoteFolder, removeNoteFolder, updateNoteFolder,
     addPersonalNote, removePersonalNote, updatePersonalNote,
     getActiveNotes, user, addNotification, mode } = store;
   const notes = getActiveNotes();
@@ -18,6 +18,8 @@ export default function Notes() {
   const [expandedFolders, setExpandedFolders] = useState({});
   const [showNewNote, setShowNewNote] = useState(false);
   const [showNewFolder, setShowNewFolder] = useState(false);
+  const [editingFolder, setEditingFolder] = useState(null);
+  const [folderMenu, setFolderMenu] = useState(null); // { id, x, y }
 
   const selected = notes.find(n => n.id === selectedId) ?? notes[0];
 
@@ -60,6 +62,48 @@ export default function Notes() {
     else addNoteFolder(folder);
   };
 
+  const handleRenameFolder = async (folderId, newName) => {
+    const folder = noteFolders.find(f => f.id === folderId);
+    if (!folder) return;
+    if (isGroup && groupId) {
+      await saveNoteFolder(groupId, { ...folder, name: newName });
+    } else {
+      updateNoteFolder(folderId, { name: newName });
+    }
+    addNotification({ title: 'Folder Renamed', message: `Folder renamed to "${newName}"`, type: 'info', section: 'Notes' });
+  };
+
+  const handleDeleteFolder = async (folderId) => {
+    const folder = noteFolders.find(f => f.id === folderId);
+    if (!folder) return;
+    if (!confirm(`Delete folder "${folder.name}"? Notes inside will become uncategorized.`)) return;
+
+    // Move notes in this folder to uncategorized (remove folderId)
+    const folderNotes = notes.filter(n => n.folderId === folderId);
+    for (const note of folderNotes) {
+      if (isGroup && groupId) {
+        await updateNoteDoc(groupId, note.id, { folderId: null });
+      } else {
+        updatePersonalNote(note.id, { folderId: null });
+      }
+    }
+
+    if (isGroup && groupId) {
+      await deleteNoteFolder(groupId, folderId);
+    } else {
+      removeNoteFolder(folderId);
+    }
+    addNotification({ title: 'Folder Deleted', message: `"${folder.name}" removed`, type: 'alert', section: 'Notes' });
+  };
+
+  // Close folder menu when clicking outside
+  useEffect(() => {
+    if (!folderMenu) return;
+    const handleClick = () => setFolderMenu(null);
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [folderMenu]);
+
   return (
     <div className="h-full flex animate-fade-in" style={{ overflow: 'hidden' }}>
       <aside className="hidden md:flex flex-col" style={{ width: 280, borderRight: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-secondary)', flexShrink: 0 }}>
@@ -81,12 +125,42 @@ export default function Notes() {
             const isExp = expandedFolders[f.id] !== false;
             if (searchQuery && folderNotes.length === 0) return null;
             return (
-              <div key={f.id} style={{ marginBottom: 8 }}>
-                <button onClick={() => setExpandedFolders(s => ({ ...s, [f.id]: !isExp }))} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 8px', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                  <span style={{ transform: isExp ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s', fontSize: 8 }}>▶</span>
-                  <Folder size={13} /><span style={{ flex: 1, textAlign: 'left' }}>{f.name}</span>
-                  <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)' }}>{folderNotes.length}</span>
-                </button>
+              <div key={f.id} style={{ marginBottom: 8, position: 'relative' }}>
+                <div className="folder-row" style={{ display: 'flex', alignItems: 'center', gap: 0, position: 'relative' }}>
+                  <button onClick={() => setExpandedFolders(s => ({ ...s, [f.id]: !isExp }))} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, padding: '4px 8px', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                    <span style={{ transform: isExp ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s', fontSize: 8 }}>▶</span>
+                    <Folder size={13} /><span style={{ flex: 1, textAlign: 'left' }}>{f.name}</span>
+                    <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)' }}>{folderNotes.length}</span>
+                  </button>
+                  <button
+                    className="folder-menu-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setFolderMenu(prev => prev?.id === f.id ? null : { id: f.id, x: rect.right, y: rect.bottom });
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: 22, height: 22, background: 'none', border: 'none',
+                      color: 'var(--color-text-disabled)', cursor: 'pointer', borderRadius: 4,
+                      opacity: 0, transition: 'opacity 0.15s, color 0.15s',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <MoreVertical size={12} />
+                  </button>
+                </div>
+
+                {/* Folder context menu */}
+                {folderMenu?.id === f.id && (
+                  <FolderContextMenu
+                    x={folderMenu.x}
+                    y={folderMenu.y}
+                    onRename={() => { setEditingFolder(f); setFolderMenu(null); }}
+                    onDelete={() => { handleDeleteFolder(f.id); setFolderMenu(null); }}
+                  />
+                )}
+
                 {isExp && <div style={{ marginLeft: 12, marginTop: 2 }}>
                   {folderNotes.map(n => (
                     <button key={n.id} onClick={() => setSelectedId(n.id)} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%', padding: '8px 10px', background: selected?.id === n.id ? 'var(--color-bg-elevated)' : 'transparent', border: selected?.id === n.id ? '1px solid var(--color-border-default)' : '1px solid transparent', borderRadius: 8, cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', marginBottom: 2 }} className="hover:bg-[var(--color-bg-hover)]">
@@ -127,6 +201,113 @@ export default function Notes() {
       </div>
       {showNewNote && <NewNoteModal folders={noteFolders} onClose={() => setShowNewNote(false)} onSave={handleAddNote} />}
       {showNewFolder && <NewFolderModal onClose={() => setShowNewFolder(false)} onSave={handleAddFolder} />}
+      {editingFolder && (
+        <EditFolderModal
+          folder={editingFolder}
+          onClose={() => setEditingFolder(null)}
+          onSave={(newName) => { handleRenameFolder(editingFolder.id, newName); setEditingFolder(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Folder Context Menu ── */
+function FolderContextMenu({ x, y, onRename, onDelete }) {
+  const menuRef = useRef(null);
+  const [pos, setPos] = useState({ top: y, left: x });
+
+  useEffect(() => {
+    if (menuRef.current) {
+      const rect = menuRef.current.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let top = y;
+      let left = x;
+      if (rect.right > vw) left = x - rect.width - 20;
+      if (rect.bottom > vh) top = y - rect.height;
+      setPos({ top, left });
+    }
+  }, [x, y]);
+
+  return (
+    <div
+      ref={menuRef}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        position: 'fixed',
+        top: pos.top,
+        left: pos.left,
+        zIndex: 9999,
+        background: 'var(--color-bg-elevated)',
+        border: '1px solid var(--color-border-default)',
+        borderRadius: 8,
+        padding: 4,
+        minWidth: 140,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        animation: 'fadeIn 0.12s ease-out',
+      }}
+    >
+      <button
+        onClick={onRename}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px',
+          background: 'none', border: 'none', color: 'var(--color-text-primary)',
+          cursor: 'pointer', borderRadius: 6, fontSize: 12, fontWeight: 500,
+          transition: 'background 0.12s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'none'}
+      >
+        <Pencil size={13} style={{ color: 'var(--color-accent)' }} />
+        Rename
+      </button>
+      <button
+        onClick={onDelete}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px',
+          background: 'none', border: 'none', color: 'var(--color-danger)',
+          cursor: 'pointer', borderRadius: 6, fontSize: 12, fontWeight: 500,
+          transition: 'background 0.12s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'none'}
+      >
+        <Trash2 size={13} />
+        Delete
+      </button>
+    </div>
+  );
+}
+
+/* ── Edit Folder Modal ── */
+function EditFolderModal({ folder, onClose, onSave }) {
+  const [name, setName] = useState(folder.name);
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)' }}>Rename Folder</h2>
+          <button onClick={onClose} className="btn-ghost btn-icon" style={{ width: 28, height: 28 }}><X size={16} /></button>
+        </div>
+        <form onSubmit={e => {
+          e.preventDefault();
+          if (name.trim() && name.trim() !== folder.name) {
+            onSave(name.trim());
+          } else {
+            onClose();
+          }
+        }}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Folder Name</label>
+            <input className="input" placeholder="e.g. Planning" value={name} onChange={e => setName(e.target.value)} autoFocus />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button>
+            <button type="submit" className="btn btn-primary" style={{ flex: 1 }}><Pencil size={14} /> Rename</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

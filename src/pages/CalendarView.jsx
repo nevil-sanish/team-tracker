@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, Users as UsersIcon, Repeat, Edit3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, Users as UsersIcon, Repeat, Edit3, Palette } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { toDateKey, generateId, nowIST } from '../lib/utils';
 import { saveEvent, deleteEvent as deleteEventFS, saveActivity } from '../lib/dataService';
@@ -8,6 +8,11 @@ const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 // No blue (#3b82f6) for single users — blue is reserved for multi-user events
 const USER_COLORS = ['#f97316','#22c55e','#eab308','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f59e0b','#6366f1','#a855f7'];
 const MULTI_COLOR = '#3b82f6';
+const COLOR_SWATCHES = [
+  '#f97316', '#ef4444', '#ec4899', '#a855f7',
+  '#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9',
+  '#14b8a6', '#22c55e', '#eab308', '#78716c',
+];
 
 function getUserColor(members, userId) {
   if (!members?.length || !userId) return USER_COLORS[0];
@@ -15,6 +20,7 @@ function getUserColor(members, userId) {
   return idx >= 0 ? USER_COLORS[idx % USER_COLORS.length] : USER_COLORS[0];
 }
 function getEventColor(members, event) {
+  if (event.color) return event.color;
   if (!event.forUsers || event.forUsers.length === 0 || event.forAll) return MULTI_COLOR;
   if (event.forUsers.length > 1) return MULTI_COLOR;
   return getUserColor(members, event.forUsers[0]);
@@ -301,6 +307,7 @@ function EditEventModal({ event, members, sections, onClose, onDelete, onSave })
   const [section, setSection] = useState(event.section || 'default');
   const [forAll, setForAll] = useState(event.forAll !== false);
   const [forUsers, setForUsers] = useState(event.forUsers || []);
+  const [customColor, setCustomColor] = useState(event.color || '');
   const c = getEventColor(members, event);
   const forNames = event.forAll ? 'All members' : (event.forUsers || []).map(uid => members.find(m => m.id === uid)?.name || uid).join(', ') || 'Everyone';
   const toggleUser = (uid) => setForUsers(s => s.includes(uid) ? s.filter(u => u !== uid) : [...s, uid]);
@@ -312,6 +319,7 @@ function EditEventModal({ event, members, sections, onClose, onDelete, onSave })
       title: title.trim(), date, startTime: allDay ? '00:00' : startTime, endTime: allDay ? '23:59' : endTime,
       endDate: endDate || date, section, allDay,
       recurrence, forAll, forUsers: forAll ? [] : forUsers,
+      color: customColor || null,
       createdBy: event.createdBy, createdById: event.createdById, attendees: event.attendees || [],
     });
   };
@@ -373,6 +381,16 @@ function EditEventModal({ event, members, sections, onClose, onDelete, onSave })
               ); })}
             </div>
           </div>}
+          {/* Color Picker */}
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 6 }}><Palette size={12} /> Event Color</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              <button type="button" onClick={() => setCustomColor('')} title="Auto (default)" style={{ width: 24, height: 24, borderRadius: 6, border: !customColor ? '2px solid var(--color-accent)' : '2px solid var(--color-border-default)', background: 'var(--color-bg-tertiary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: 'var(--color-text-muted)', transition: 'all 0.15s' }}>A</button>
+              {COLOR_SWATCHES.map(sw => (
+                <button key={sw} type="button" onClick={() => setCustomColor(sw)} style={{ width: 24, height: 24, borderRadius: 6, background: sw, border: customColor === sw ? '2px solid white' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.15s', boxShadow: customColor === sw ? `0 0 0 2px ${sw}` : 'none' }} />
+              ))}
+            </div>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" onClick={() => setEditing(false)} className="btn btn-secondary" style={{ flex: 1, fontSize: 12 }}>Cancel</button>
             <button type="submit" className="btn btn-primary" style={{ flex: 1, fontSize: 12 }}>Save Changes</button>
@@ -393,6 +411,7 @@ function EventModal({ date, members, sections, user, onClose, onSave }) {
   const [section, setSection] = useState(sections[0]?.id || 'default');
   const [forAll, setForAll] = useState(true);
   const [forUsers, setForUsers] = useState([]);
+  const [customColor, setCustomColor] = useState('');
   const dateStr = date ? toDateKey(date) : toDateKey(new Date());
   const toggleUser = (uid) => setForUsers(s => s.includes(uid) ? s.filter(u => u !== uid) : [...s, uid]);
 
@@ -403,6 +422,7 @@ function EventModal({ date, members, sections, user, onClose, onSave }) {
       title: title.trim(), date: dateStr, startTime: allDay ? '00:00' : startTime, endTime: allDay ? '23:59' : endTime,
       endDate: endDate || dateStr, section, allDay,
       recurrence,
+      color: customColor || null,
       forAll, forUsers: forAll ? [] : forUsers, attendees: [],
     });
   };
@@ -444,6 +464,16 @@ function EventModal({ date, members, sections, user, onClose, onSave }) {
               ); })}
             </div>
           </div>}
+          {/* Color Picker */}
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 6 }}><Palette size={12} /> Event Color</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              <button type="button" onClick={() => setCustomColor('')} title="Auto (default)" style={{ width: 24, height: 24, borderRadius: 6, border: !customColor ? '2px solid var(--color-accent)' : '2px solid var(--color-border-default)', background: 'var(--color-bg-tertiary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: 'var(--color-text-muted)', transition: 'all 0.15s' }}>A</button>
+              {COLOR_SWATCHES.map(sw => (
+                <button key={sw} type="button" onClick={() => setCustomColor(sw)} style={{ width: 24, height: 24, borderRadius: 6, background: sw, border: customColor === sw ? '2px solid white' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.15s', boxShadow: customColor === sw ? `0 0 0 2px ${sw}` : 'none' }} />
+              ))}
+            </div>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1, fontSize: 12 }}>Cancel</button>
             <button type="submit" className="btn btn-primary" style={{ flex: 1, fontSize: 12 }}><Plus size={13} /> Create</button>

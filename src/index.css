@@ -521,3 +521,14 @@
   border-radius: 6px;
   border: 1px solid transparent;
 }
+
+/* ── Folder row hover menu ── */
+.folder-row:hover .folder-menu-btn {
+  opacity: 1 !important;
+}
+
+.folder-menu-btn:hover {
+  background: var(--color-bg-hover) !important;
+  color: var(--color-text-primary) !important;
+}
+
