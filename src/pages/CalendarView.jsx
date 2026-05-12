@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, Users as UsersIcon, Repeat, Edit3, Palette } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, Users as UsersIcon, Repeat, Edit3, Palette, AlignLeft } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { toDateKey, generateId, nowIST } from '../lib/utils';
 import { saveEvent, deleteEvent as deleteEventFS, saveActivity } from '../lib/dataService';
 
-const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 // No blue (#3b82f6) for single users — blue is reserved for multi-user events
 const USER_COLORS = ['#f97316','#22c55e','#eab308','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f59e0b','#6366f1','#a855f7'];
 const MULTI_COLOR = '#3b82f6';
@@ -308,6 +308,7 @@ function EditEventModal({ event, members, sections, onClose, onDelete, onSave })
   const [forAll, setForAll] = useState(event.forAll !== false);
   const [forUsers, setForUsers] = useState(event.forUsers || []);
   const [customColor, setCustomColor] = useState(event.color || '');
+  const [description, setDescription] = useState(event.description || '');
   const c = getEventColor(members, event);
   const forNames = event.forAll ? 'All members' : (event.forUsers || []).map(uid => members.find(m => m.id === uid)?.name || uid).join(', ') || 'Everyone';
   const toggleUser = (uid) => setForUsers(s => s.includes(uid) ? s.filter(u => u !== uid) : [...s, uid]);
@@ -320,6 +321,7 @@ function EditEventModal({ event, members, sections, onClose, onDelete, onSave })
       endDate: endDate || date, section, allDay,
       recurrence, forAll, forUsers: forAll ? [] : forUsers,
       color: customColor || null,
+      description: description.trim(),
       createdBy: event.createdBy, createdById: event.createdById, attendees: event.attendees || [],
     });
   };
@@ -337,6 +339,10 @@ function EditEventModal({ event, members, sections, onClose, onDelete, onSave })
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><UsersIcon size={13} style={{ color: c }} /><span>For: {forNames}</span></div>
             {event.recurrence && event.recurrence !== 'none' && <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Repeat size={13} />Repeats {event.recurrence}</div>}
           </div>
+          {event.description && <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8, background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-subtle)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: 6 }}><AlignLeft size={10} /> Description</div>
+            <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{event.description}</p>
+          </div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
             <button onClick={() => setEditing(true)} className="btn btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}><Edit3 size={13} /> Edit</button>
             <button onClick={() => onDelete(event.id)} className="btn" style={{ flex: 1, background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}><Trash2 size={13} /> Delete</button>
@@ -355,6 +361,7 @@ function EditEventModal({ event, members, sections, onClose, onDelete, onSave })
         </div>
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 10 }}><label style={{ display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 3 }}>Title</label><input className="input" value={title} onChange={e => setTitle(e.target.value)} autoFocus style={{ fontSize: 12, height: 32 }} /></div>
+          <div style={{ marginBottom: 10 }}><label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 3 }}><AlignLeft size={10} /> Description</label><textarea className="input" placeholder="Add a description…" value={description} onChange={e => setDescription(e.target.value)} rows={3} style={{ fontSize: 12, resize: 'vertical', minHeight: 48, lineHeight: 1.5, padding: '6px 10px' }} /></div>
           <div style={{ marginBottom: 10 }}><label style={{ display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 3 }}>Date</label><input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} style={{ fontSize: 12, height: 32 }} /></div>
           <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
@@ -412,6 +419,7 @@ function EventModal({ date, members, sections, user, onClose, onSave }) {
   const [forAll, setForAll] = useState(true);
   const [forUsers, setForUsers] = useState([]);
   const [customColor, setCustomColor] = useState('');
+  const [description, setDescription] = useState('');
   const dateStr = date ? toDateKey(date) : toDateKey(new Date());
   const toggleUser = (uid) => setForUsers(s => s.includes(uid) ? s.filter(u => u !== uid) : [...s, uid]);
 
@@ -423,6 +431,7 @@ function EventModal({ date, members, sections, user, onClose, onSave }) {
       endDate: endDate || dateStr, section, allDay,
       recurrence,
       color: customColor || null,
+      description: description.trim(),
       forAll, forUsers: forAll ? [] : forUsers, attendees: [],
     });
   };
@@ -439,6 +448,7 @@ function EventModal({ date, members, sections, user, onClose, onSave }) {
         </p>
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 10 }}><label style={{ display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 3 }}>Title</label><input className="input" placeholder="Event title" value={title} onChange={e => setTitle(e.target.value)} autoFocus style={{ fontSize: 12, height: 32 }} /></div>
+          <div style={{ marginBottom: 10 }}><label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 3 }}><AlignLeft size={10} /> Description</label><textarea className="input" placeholder="Add a description…" value={description} onChange={e => setDescription(e.target.value)} rows={3} style={{ fontSize: 12, resize: 'vertical', minHeight: 48, lineHeight: 1.5, padding: '6px 10px' }} /></div>
           <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
               <input type="checkbox" checked={allDay} onChange={e => setAllDay(e.target.checked)} style={{ accentColor: 'var(--color-accent)' }} /> All Day
@@ -519,6 +529,7 @@ function DayEventsPopup({ dateKey, byDay, weekSpanData, weeks, members, onClose,
                 <div style={{ width: 4, borderRadius: 2, alignSelf: 'stretch', background: c, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</div>
+                  {e.description && <div style={{ fontSize: 10, color: 'var(--color-text-secondary)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontStyle: 'italic' }}>{e.description}</div>}
                   <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>
                     <Clock size={9} style={{ marginRight: 3, verticalAlign: 'middle' }} />
                     {timeLabel}
@@ -535,5 +546,5 @@ function DayEventsPopup({ dateKey, byDay, weekSpanData, weeks, members, onClose,
   );
 }
 
-function buildMonth(cursor) { const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1); const so = (first.getDay() + 6) % 7; const start = new Date(first); start.setDate(start.getDate() - so); const days = []; for (let i = 0; i < 42; i++) { const d = new Date(start); d.setDate(start.getDate() + i); days.push({ date: d, inMonth: d.getMonth() === cursor.getMonth() }); } return days; }
+function buildMonth(cursor) { const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1); const so = first.getDay(); const start = new Date(first); start.setDate(start.getDate() - so); const days = []; for (let i = 0; i < 42; i++) { const d = new Date(start); d.setDate(start.getDate() + i); days.push({ date: d, inMonth: d.getMonth() === cursor.getMonth() }); } return days; }
 function buildMiniMonth(cursor) { const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1); const so = first.getDay(); const start = new Date(first); start.setDate(start.getDate() - so); const days = []; for (let i = 0; i < 42; i++) { const d = new Date(start); d.setDate(start.getDate() + i); days.push({ date: d, inMonth: d.getMonth() === cursor.getMonth() }); } return days; }
