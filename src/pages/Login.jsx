@@ -7,7 +7,8 @@ export default function Login() {
     try {
       await loginWithGoogle();
     } catch (err) {
-      console.error('Login failed', err);
+      // Only log in development to prevent leaking auth details in production
+      if (import.meta.env.DEV) console.error('Login failed', err);
     }
   };
 

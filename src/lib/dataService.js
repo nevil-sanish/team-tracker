@@ -5,6 +5,7 @@ import {
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from './firebase';
 import { generateId } from './utils';
+import { validateFileUpload } from './security';
 
 /**
  * Upload a file as a base64 string to be stored directly in Firestore.
@@ -16,10 +17,10 @@ export async function uploadResourceFile(groupId, file, onProgress) {
   return new Promise((resolve, reject) => {
     if (onProgress) onProgress(10);
     
-    // Set limit slightly under 750KB to safely fit within 1MB after Base64 encoding
-    const MAX_SIZE = 750 * 1024;
-    if (file.size > MAX_SIZE) {
-      return reject(new Error(`File is too large (${(file.size/1024).toFixed(1)}KB). Maximum size for the free database is 750KB. For larger files, please use Links.`));
+    // Validate file size, MIME type, and extension
+    const validation = validateFileUpload(file, 750 * 1024);
+    if (!validation.valid) {
+      return reject(new Error(validation.error));
     }
 
     const reader = new FileReader();

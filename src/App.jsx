@@ -59,7 +59,7 @@ export default function App() {
             setMode('group');
           }
         } catch (err) {
-          console.error('Failed to restore groups:', err);
+          if (import.meta.env.DEV) console.error('Failed to restore groups:', err);
         }
       } else {
         setUser(null);

@@ -1,50 +1,53 @@
+/**
+ * Groq AI Service
+ *
+ * SECURITY: The API key is NEVER shipped to the browser.
+ * All requests go through the /api/chat serverless proxy which
+ * reads the key from server-side environment variables.
+ *
+ * Requests include the Firebase ID token for server-side auth verification.
+ */
+
 import { auth } from './firebase';
 
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const PROXY_URL = '/api/chat';
-const GROQ_DIRECT_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+async function getAuthToken() {
+  try {
+    const user = auth.currentUser;
+    if (!user) return null;
+    return await user.getIdToken();
+  } catch {
+    return null;
+  }
+}
 
 async function callProxy(messages, maxTokens) {
-  const token = await auth.currentUser?.getIdToken();
+  const token = await getAuthToken();
+
   const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   const res = await fetch(PROXY_URL, {
     method: 'POST',
     headers,
     body: JSON.stringify({ messages, max_tokens: maxTokens }),
   });
-  if (!res.ok) throw new Error('Proxy failed');
-  return res.json();
-}
 
-async function callDirect(messages, maxTokens) {
-  const res = await fetch(GROQ_DIRECT_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'llama3-8b-8192',
-      messages,
-      max_tokens: maxTokens,
-      temperature: 0.7,
-    }),
-  });
-  if (!res.ok) throw new Error('Groq API error: ' + res.status);
+  if (!res.ok) {
+    // Never expose raw server errors to console in production
+    const status = res.status;
+    if (status === 429) throw new Error('Rate limit exceeded. Please wait a moment.');
+    if (status === 401) throw new Error('Please sign in to use the AI assistant.');
+    throw new Error(`AI service unavailable (${status})`);
+  }
   return res.json();
 }
 
 export async function askGroq(messages, maxTokens = 300) {
-  let data;
-  try {
-    // Try serverless proxy first (works on Vercel)
-    data = await callProxy(messages, maxTokens);
-  } catch {
-    // Fall back to direct API call (works locally)
-    data = await callDirect(messages, maxTokens);
-  }
+  const data = await callProxy(messages, maxTokens);
   return data.choices?.[0]?.message?.content || '';
 }
 

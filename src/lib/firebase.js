@@ -43,7 +43,10 @@ export const loginWithGoogle = async () => {
 
     return user;
   } catch (error) {
-    console.error("Error signing in with Google", error);
+    // Only log in development — prevent secret exposure in production logs
+    if (import.meta.env.DEV) {
+      console.error("Error signing in with Google", error);
+    }
     throw error;
   }
 };
@@ -52,7 +55,10 @@ export const logout = async () => {
   try {
     await signOut(auth);
   } catch (error) {
-    console.error("Error signing out", error);
+    // Only log in development
+    if (import.meta.env.DEV) {
+      console.error("Error signing out", error);
+    }
   }
 };
 

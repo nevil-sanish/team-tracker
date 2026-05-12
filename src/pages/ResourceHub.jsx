@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Link as LinkIcon, FileText, Code, Folder, Plus, X, Trash2, Upload, Image, Film, File, Download, ExternalLink, Loader2, ChevronDown, Filter, Search, Edit2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { formatRelative } from '../lib/utils';
+import { sanitizeUrl, sanitizeText } from '../lib/security';
 import { saveResource, deleteResource as deleteResourceFS, saveActivity, uploadResourceFile, deleteStorageFile, saveResourceFolder, deleteResourceFolder } from '../lib/dataService';
 import Avatar from '../components/Avatar';
 
@@ -195,7 +196,7 @@ export default function ResourceHub() {
                         <button onClick={() => handleRemove(r.id)} className="btn-ghost btn-icon" style={{ width: 24, height: 24, color: 'var(--color-danger)' }}><Trash2 size={12}/></button>
                       </div>
                       <h4 style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 4, paddingRight: 50 }}>{r.title}</h4>
-                      <a href={/^https?:\/\//i.test(r.url) ? r.url : `https://${r.url}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--color-info)', textDecoration: 'underline', wordBreak: 'break-all', display: 'block', marginBottom: 8 }}>{r.url}</a>
+                      <a href={sanitizeUrl(r.url) || '#'} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--color-info)', textDecoration: 'underline', wordBreak: 'break-all', display: 'block', marginBottom: 8 }}>{sanitizeText(r.url)}</a>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Avatar name={r.addedByName} size="xs" />
                         <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{r.addedByName}</span>

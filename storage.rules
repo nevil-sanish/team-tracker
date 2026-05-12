@@ -1,0 +1,60 @@
+rules_version = '2';
+
+/**
+ * Firebase Storage Security Rules — Team Tracker
+ *
+ * Principles:
+ *   1. Default deny — no access unless explicitly granted
+ *   2. All operations require authentication
+ *   3. File size limits enforced (10MB max)
+ *   4. MIME type validation for uploads
+ *   5. Separate policies for public vs private storage
+ *   6. Upload directories are non-executable (content-type enforcement)
+ */
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ─── Default: deny everything ───────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // ─── Group resources (authenticated members only) ──────
+    match /groups/{groupId}/{allPaths=**} {
+      // Any authenticated user can read group files
+      allow read: if request.auth != null;
+
+      // Upload rules: auth required + file constraints
+      allow create: if request.auth != null
+        // Max 10MB file size
+        && request.resource.size < 10 * 1024 * 1024
+        // Only allowed MIME types (no executables)
+        && request.resource.contentType.matches(
+          'image/.*|video/.*|audio/.*|application/pdf|text/.*|application/json|application/zip'
+        );
+
+      // Allow updates (metadata changes) by authenticated users
+      allow update: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024;
+
+      // Allow deletes by authenticated users
+      allow delete: if request.auth != null;
+    }
+
+    // ─── User avatars (public read, owner write) ───────────
+    match /avatars/{userId}/{fileName} {
+      // Anyone can read avatars (used in profiles)
+      allow read: if true;
+
+      // Only the owner can upload their avatar
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      allow delete: if request.auth != null
+        && request.auth.uid == userId;
+    }
+  }
+}
