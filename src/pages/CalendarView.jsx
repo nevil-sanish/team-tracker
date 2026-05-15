@@ -292,6 +292,7 @@ export default function CalendarView() {
                 </div>
               </div>
             )}
+          </div>
         </div>
 
         {/* Month Grid — fixed height rows */}
