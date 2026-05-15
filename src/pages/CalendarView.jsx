@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, Repeat, Edit3, Palette, AlignLeft, Upload } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { toDateKey, generateId, nowIST } from '../lib/utils';
@@ -104,8 +104,6 @@ export default function CalendarView() {
     } else {
       updatePersonalEvent(eventId, updates);
     }
-    addNotification({ title: 'Event Updated', message: `"${updates.title}" updated`, type: 'info', section: 'Calendar' });
-    setDetailEvent(null);
   };
 
   const handleRemove = async (id) => {
@@ -395,19 +393,27 @@ function EditEventModal({ event, sections, onClose, onDelete, onSave }) {
   const [description, setDescription] = useState(event.description || '');
   const c = getEventColor(sections, event);
   const sectionName = sections.find(s => s.id === (event.section || 'default'))?.name || 'General';
+  const isFirstRender = useRef(true);
+  const saveTimer = useRef(null);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  // Auto-save on any field change (debounced 600ms)
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (!editing) return;
     if (!title.trim()) return;
-    onSave(event.id, {
-      title: title.trim(), date, startTime: allDay ? '00:00' : startTime, endTime: allDay ? '23:59' : endTime,
-      endDate: endDate || date, section, allDay,
-      recurrence, forAll: true, forUsers: [],
-      color: customColor || null,
-      description: description.trim(),
-      createdBy: event.createdBy, createdById: event.createdById, attendees: event.attendees || [],
-    });
-  };
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      onSave(event.id, {
+        title: title.trim(), date, startTime: allDay ? '00:00' : startTime, endTime: allDay ? '23:59' : endTime,
+        endDate: endDate || date, section, allDay,
+        recurrence, forAll: true, forUsers: [],
+        color: customColor || null,
+        description: description.trim(),
+        createdBy: event.createdBy, createdById: event.createdById, attendees: event.attendees || [],
+      });
+    }, 600);
+    return () => clearTimeout(saveTimer.current);
+  }, [title, date, startTime, endTime, endDate, section, allDay, recurrence, customColor, description, editing]);
 
   if (!editing) {
     return (
@@ -440,9 +446,12 @@ function EditEventModal({ event, sections, onClose, onDelete, onSave }) {
       <div className="modal-content animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>Edit Event</h2>
-          <button onClick={onClose} className="btn-ghost btn-icon" style={{ width: 26, height: 26 }}><X size={14} /></button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={() => onDelete(event.id)} className="btn-ghost btn-icon" style={{ width: 26, height: 26, color: 'var(--color-danger)' }} title="Delete"><Trash2 size={14} /></button>
+            <button onClick={onClose} className="btn-ghost btn-icon" style={{ width: 26, height: 26 }}><X size={14} /></button>
+          </div>
         </div>
-        <form onSubmit={handleSubmit}>
+        <div>
           <div style={{ marginBottom: 10 }}><label style={{ display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 3 }}>Title</label><input className="input" value={title} onChange={e => setTitle(e.target.value)} autoFocus style={{ fontSize: 12, height: 32 }} /></div>
           <div style={{ marginBottom: 10 }}><label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 3 }}><AlignLeft size={10} /> Description</label><textarea className="input" placeholder="Add a description…" value={description} onChange={e => setDescription(e.target.value)} rows={3} style={{ fontSize: 12, resize: 'vertical', minHeight: 48, lineHeight: 1.5, padding: '6px 10px' }} /></div>
           <div style={{ marginBottom: 10 }}><label style={{ display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 3 }}>Date</label><input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} style={{ fontSize: 12, height: 32 }} /></div>
@@ -464,17 +473,14 @@ function EditEventModal({ event, sections, onClose, onDelete, onSave }) {
           <div style={{ marginBottom: 12 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 6 }}><Palette size={12} /> Event Color</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-              <button type="button" onClick={() => setCustomColor('')} title="Auto (default)" style={{ width: 24, height: 24, borderRadius: 6, border: !customColor ? '2px solid var(--color-accent)' : '2px solid var(--color-border-default)', background: 'var(--color-bg-tertiary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: 'var(--color-text-muted)', transition: 'all 0.15s' }}>A</button>
+              <button type="button" onClick={() => setCustomColor('')} title="Auto (section default)" style={{ width: 24, height: 24, borderRadius: 6, border: !customColor ? '2px solid var(--color-accent)' : '2px solid var(--color-border-default)', background: 'var(--color-bg-tertiary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: 'var(--color-text-muted)', transition: 'all 0.15s' }}>A</button>
               {COLOR_SWATCHES.map(sw => (
                 <button key={sw} type="button" onClick={() => setCustomColor(sw)} style={{ width: 24, height: 24, borderRadius: 6, background: sw, border: customColor === sw ? '2px solid white' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.15s', boxShadow: customColor === sw ? `0 0 0 2px ${sw}` : 'none' }} />
               ))}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={() => setEditing(false)} className="btn btn-secondary" style={{ flex: 1, fontSize: 12 }}>Cancel</button>
-            <button type="submit" className="btn btn-primary" style={{ flex: 1, fontSize: 12 }}>Save Changes</button>
-          </div>
-        </form>
+          <p style={{ fontSize: 9, color: 'var(--color-text-disabled)', textAlign: 'center', margin: '4px 0 0' }}>Changes are saved automatically</p>
+        </div>
       </div>
     </div>
   );
