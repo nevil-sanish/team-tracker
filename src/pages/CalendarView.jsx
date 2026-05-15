@@ -1,33 +1,70 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, Users as UsersIcon, Repeat, Edit3, Palette, AlignLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, Repeat, Edit3, Palette, AlignLeft, Upload } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { toDateKey, generateId, nowIST } from '../lib/utils';
 import { saveEvent, deleteEvent as deleteEventFS, saveActivity } from '../lib/dataService';
 
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-// No blue (#3b82f6) for single users — blue is reserved for multi-user events
-const USER_COLORS = ['#f97316','#22c55e','#eab308','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f59e0b','#6366f1','#a855f7'];
-const MULTI_COLOR = '#3b82f6';
+const SECTION_COLORS = [
+  '#3b82f6', '#f97316', '#22c55e', '#ef4444', '#8b5cf6',
+  '#ec4899', '#14b8a6', '#eab308', '#6366f1', '#0ea5e9',
+];
 const COLOR_SWATCHES = [
   '#f97316', '#ef4444', '#ec4899', '#a855f7',
   '#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9',
   '#14b8a6', '#22c55e', '#eab308', '#78716c',
 ];
 
-function getUserColor(members, userId) {
-  if (!members?.length || !userId) return USER_COLORS[0];
-  const idx = members.findIndex(m => m.id === userId);
-  return idx >= 0 ? USER_COLORS[idx % USER_COLORS.length] : USER_COLORS[0];
-}
-function getEventColor(members, event) {
+function getEventColor(sections, event) {
   if (event.color) return event.color;
-  if (!event.forUsers || event.forUsers.length === 0 || event.forAll) return MULTI_COLOR;
-  if (event.forUsers.length > 1) return MULTI_COLOR;
-  return getUserColor(members, event.forUsers[0]);
+  const sec = sections.find(s => s.id === (event.section || 'default'));
+  return sec?.color || SECTION_COLORS[0];
 }
-function getForLabel(members, event) {
-  if (event.forAll || !event.forUsers?.length) return 'All';
-  return event.forUsers.map(uid => members.find(m => m.id === uid)?.name?.split(' ')[0] || 'User').join(', ');
+
+function parseICS(text) {
+  const events = [];
+  const blocks = text.split('BEGIN:VEVENT');
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i].split('END:VEVENT')[0];
+    const get = (key) => {
+      const re = new RegExp(`^${key}[;:](.*)`, 'm');
+      const m = block.match(re);
+      if (!m) return '';
+      let val = m[1];
+      // For properties with parameters like DTSTART;VALUE=DATE:20260515
+      if (val.includes(':')) val = val.split(':').pop();
+      return val.trim();
+    };
+    const title = (block.match(/^SUMMARY[;:](.*)$/m) || ['',''])[1].replace(/^.*:/, '').trim() || 'Untitled';
+    const desc = (block.match(/^DESCRIPTION[;:](.*)$/m) || ['',''])[1].replace(/^.*:/, '').replace(/\\n/g, '\n').trim();
+    const dtStart = get('DTSTART');
+    const dtEnd = get('DTEND');
+    const parseDt = (dt) => {
+      if (!dt) return { date: '', time: '', allDay: true };
+      // 8-char = date-only (all day), 15-char+ = datetime
+      if (dt.length === 8) return { date: `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}`, time: '', allDay: true };
+      return { date: `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}`, time: `${dt.slice(9,11)}:${dt.slice(11,13)}`, allDay: false };
+    };
+    const start = parseDt(dtStart);
+    const end = parseDt(dtEnd);
+    if (!start.date) continue;
+    events.push({
+      id: generateId(),
+      title,
+      description: desc,
+      date: start.date,
+      endDate: end.date || start.date,
+      startTime: start.allDay ? '00:00' : start.time,
+      endTime: end.allDay ? '23:59' : (end.time || '23:59'),
+      allDay: start.allDay,
+      recurrence: 'none',
+      forAll: true,
+      forUsers: [],
+      attendees: [],
+      color: null,
+    });
+  }
+  return events;
 }
 
 export default function CalendarView() {
@@ -39,11 +76,13 @@ export default function CalendarView() {
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [detailEvent, setDetailEvent] = useState(null);
-  const [filterUser, setFilterUser] = useState('all');
   const [dayDetailKey, setDayDetailKey] = useState(null);
-  const [calSections, setCalSections] = useState([{ id: 'default', name: 'General', enabled: true }]);
+  const [calSections, setCalSections] = useState([{ id: 'default', name: 'General', color: SECTION_COLORS[0], enabled: true }]);
   const [showAddSection, setShowAddSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
+  const [newSectionColor, setNewSectionColor] = useState(SECTION_COLORS[1]);
+  const [editSectionId, setEditSectionId] = useState(null);
+  const [importSectionId, setImportSectionId] = useState(null);
   const groupId = isGroup ? activeGroup.id : null;
   const members = isGroup ? (activeGroup.members || []) : [];
 
@@ -81,12 +120,35 @@ export default function CalendarView() {
     setDetailEvent(null);
   };
 
+  const handleImportICS = async (e, sectionId) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    try {
+      const text = await file.text();
+      const parsed = parseICS(text);
+      if (parsed.length === 0) {
+        addNotification({ title: 'Import Failed', message: 'No events found in the .ics file', type: 'alert', section: 'Calendar' });
+        return;
+      }
+      for (const ev of parsed) {
+        const full = { ...ev, section: sectionId, createdBy: user?.name || 'Imported', createdById: user?.id || '' };
+        if (isGroup && groupId) {
+          await saveEvent(groupId, full);
+        } else {
+          addPersonalEvent(full);
+        }
+      }
+      addNotification({ title: 'Events Imported', message: `${parsed.length} event${parsed.length > 1 ? 's' : ''} imported from "${file.name}"`, type: 'info', section: 'Calendar' });
+    } catch (err) {
+      addNotification({ title: 'Import Error', message: 'Failed to parse .ics file', type: 'alert', section: 'Calendar' });
+    }
+  };
+
   const enabledSections = calSections.filter(s => s.enabled).map(s => s.id);
   const filteredEvents = useMemo(() => {
-    let items = events.filter(e => enabledSections.includes(e.section || 'default'));
-    if (filterUser !== 'all') items = items.filter(e => e.forAll || (e.forUsers && e.forUsers.includes(filterUser)));
-    return items;
-  }, [events, filterUser, enabledSections]);
+    return events.filter(e => enabledSections.includes(e.section || 'default'));
+  }, [events, enabledSections]);
 
   const miniDays = useMemo(() => buildMiniMonth(cursor), [cursor]);
   const monthDays = useMemo(() => buildMonth(cursor), [cursor]);
@@ -154,11 +216,15 @@ export default function CalendarView() {
     });
   }, [weeks, filteredEvents]);
 
-  const addSection = () => { if (!newSectionName.trim()) return; setCalSections(s => [...s, { id: generateId(), name: newSectionName.trim(), enabled: true }]); setNewSectionName(''); setShowAddSection(false); };
+  const addSection = () => { if (!newSectionName.trim()) return; setCalSections(s => [...s, { id: generateId(), name: newSectionName.trim(), color: newSectionColor, enabled: true }]); setNewSectionName(''); setNewSectionColor(SECTION_COLORS[(calSections.length) % SECTION_COLORS.length]); setShowAddSection(false); };
   const toggleSection = (id) => setCalSections(s => s.map(sec => sec.id === id ? { ...sec, enabled: !sec.enabled } : sec));
+  const deleteSection = (id) => { if (id === 'default') return; setCalSections(s => s.filter(sec => sec.id !== id)); };
+  const updateSectionColor = (id, color) => setCalSections(s => s.map(sec => sec.id === id ? { ...sec, color } : sec));
 
   return (
     <div className="h-full flex flex-col animate-fade-in">
+      {/* Hidden ICS import input */}
+      <input type="file" id="ics-import-input" accept=".ics,.ical" style={{ display: 'none' }} onChange={(e) => handleImportICS(e, importSectionId)} />
       {/* Top Bar */}
       <div className="flex items-center justify-between px-5 py-2" style={{ borderBottom: '1px solid var(--color-border-subtle)', flexShrink: 0 }}>
         <div className="flex items-center gap-2">
@@ -196,17 +262,38 @@ export default function CalendarView() {
               <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)' }}>Sections</span>
               <button onClick={() => setShowAddSection(true)} className="btn-ghost btn-icon" style={{ width: 18, height: 18 }}><Plus size={10} /></button>
             </div>
-            <div style={{ maxHeight: 120, overflowY: 'auto' }}>
-              {calSections.map(s => <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 6px', borderRadius: 6, cursor: 'pointer', fontSize: 11, color: 'var(--color-text-secondary)' }}><input type="checkbox" checked={s.enabled} onChange={() => toggleSection(s.id)} style={{ accentColor: 'var(--color-accent)' }} />{s.name}</label>)}
+            <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+              {calSections.map(s => (
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', borderRadius: 6, cursor: 'pointer', fontSize: 11, color: s.enabled ? 'var(--color-text-secondary)' : 'var(--color-text-disabled)', transition: 'all 0.15s' }}>
+                  <input type="checkbox" checked={s.enabled} onChange={() => toggleSection(s.id)} style={{ accentColor: s.color || 'var(--color-accent)' }} />
+                  <div onClick={() => setEditSectionId(editSectionId === s.id ? null : s.id)} style={{ width: 10, height: 10, borderRadius: 3, background: s.color || SECTION_COLORS[0], cursor: 'pointer', flexShrink: 0, border: '1px solid rgba(255,255,255,0.15)' }} title="Change color" />
+                  <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                  <button onClick={() => { setImportSectionId(s.id); document.getElementById('ics-import-input')?.click(); }} className="btn-ghost btn-icon" style={{ width: 16, height: 16, opacity: 0.4, flexShrink: 0 }} title="Import .ics"><Upload size={9} /></button>
+                  {s.id !== 'default' && <button onClick={() => deleteSection(s.id)} className="btn-ghost btn-icon" style={{ width: 16, height: 16, opacity: 0.4, flexShrink: 0 }} title="Delete section"><Trash2 size={9} /></button>}
+                </div>
+              ))}
+              {calSections.map(s => editSectionId === s.id && (
+                <div key={s.id + '_colors'} style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '6px 6px 4px', marginBottom: 4, background: 'var(--color-bg-tertiary)', borderRadius: 6, border: '1px solid var(--color-border-subtle)' }}>
+                  {SECTION_COLORS.map(c => (
+                    <button key={c} type="button" onClick={() => { updateSectionColor(s.id, c); setEditSectionId(null); }} style={{ width: 18, height: 18, borderRadius: 4, background: c, border: s.color === c ? '2px solid white' : '2px solid transparent', cursor: 'pointer', boxShadow: s.color === c ? `0 0 0 1px ${c}` : 'none' }} />
+                  ))}
+                </div>
+              ))}
             </div>
-            {showAddSection && <div style={{ display: 'flex', gap: 4, marginTop: 6 }}><input className="input" placeholder="Section name" value={newSectionName} onChange={e => setNewSectionName(e.target.value)} onKeyDown={e => e.key === 'Enter' && addSection()} style={{ fontSize: 11, height: 26, flex: 1 }} autoFocus /><button onClick={addSection} className="btn btn-primary" style={{ padding: '0 8px', height: 26, fontSize: 10 }}>Add</button><button onClick={() => setShowAddSection(false)} className="btn-ghost btn-icon" style={{ width: 26, height: 26 }}><X size={10} /></button></div>}
-          </div>
-          {/* Person Filter */}
-          {members.length > 0 && <div>
-            <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)', display: 'block', marginBottom: 6 }}>Filter by Person</span>
-            <button onClick={() => setFilterUser('all')} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 6px', borderRadius: 6, border: 'none', cursor: 'pointer', background: filterUser === 'all' ? 'var(--color-accent-soft)' : 'transparent', color: filterUser === 'all' ? 'var(--color-accent)' : 'var(--color-text-secondary)', fontSize: 11, fontWeight: filterUser === 'all' ? 600 : 400, textAlign: 'left' }}><UsersIcon size={11} /> All</button>
-            {members.map((m, i) => <button key={m.id} onClick={() => setFilterUser(m.id)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 6px', borderRadius: 6, border: 'none', cursor: 'pointer', background: filterUser === m.id ? 'var(--color-accent-soft)' : 'transparent', color: filterUser === m.id ? 'var(--color-accent)' : 'var(--color-text-secondary)', fontSize: 11, textAlign: 'left', marginTop: 1 }}><div style={{ width: 8, height: 8, borderRadius: '50%', background: USER_COLORS[i % USER_COLORS.length] }} />{m.name}{m.id === user?.id ? ' (you)' : ''}</button>)}
-          </div>}
+            {showAddSection && (
+              <div style={{ marginTop: 6, padding: 8, background: 'var(--color-bg-tertiary)', borderRadius: 8, border: '1px solid var(--color-border-subtle)' }}>
+                <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+                  <input className="input" placeholder="Section name" value={newSectionName} onChange={e => setNewSectionName(e.target.value)} onKeyDown={e => e.key === 'Enter' && addSection()} style={{ fontSize: 11, height: 26, flex: 1 }} autoFocus />
+                  <button onClick={addSection} className="btn btn-primary" style={{ padding: '0 8px', height: 26, fontSize: 10 }}>Add</button>
+                  <button onClick={() => setShowAddSection(false)} className="btn-ghost btn-icon" style={{ width: 26, height: 26 }}><X size={10} /></button>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {SECTION_COLORS.map(c => (
+                    <button key={c} type="button" onClick={() => setNewSectionColor(c)} style={{ width: 18, height: 18, borderRadius: 4, background: c, border: newSectionColor === c ? '2px solid white' : '2px solid transparent', cursor: 'pointer', boxShadow: newSectionColor === c ? `0 0 0 1px ${c}` : 'none' }} />
+                  ))}
+                </div>
+              </div>
+            )}
         </div>
 
         {/* Month Grid — fixed height rows */}
@@ -238,12 +325,11 @@ export default function CalendarView() {
                           {/* Single-day events */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden', flex: 1 }}>
                             {de.slice(0, maxSingle).map(e => {
-                              const c = getEventColor(members, e);
+                              const c = getEventColor(calSections, e);
                               const timeLabel = e.allDay ? '' : e.startTime;
-                              const forLabel = getForLabel(members, e);
                               return (
-                                <div key={e.id + (e._recurring ? '_r' : '')} onClick={(ev) => { ev.stopPropagation(); setDetailEvent(e); }} style={{ fontSize: 9, padding: '2px 4px', borderRadius: 4, background: c, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600, cursor: 'pointer', lineHeight: 1.3 }} title={`${e.title} (${forLabel})`}>
-                                  {timeLabel ? `${timeLabel} ` : ''}{e.title}<span style={{ opacity: 0.75, fontWeight: 400 }}> · {forLabel}</span>
+                                <div key={e.id + (e._recurring ? '_r' : '')} onClick={(ev) => { ev.stopPropagation(); setDetailEvent(e); }} style={{ fontSize: 9, padding: '2px 4px', borderRadius: 4, background: c, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600, cursor: 'pointer', lineHeight: 1.3 }} title={e.title}>
+                                  {timeLabel ? `${timeLabel} ` : ''}{e.title}
                                 </div>
                               );
                             })}
@@ -254,7 +340,7 @@ export default function CalendarView() {
                     })}
                     {/* Multi-day spanning bars */}
                     {multiEvents.map(e => {
-                      const c = getEventColor(members, e);
+                      const c = getEventColor(calSections, e);
                       const isStartInWeek = e.date >= toDateKey(week[0].date);
                       const isEndInWeek = e.endDate <= toDateKey(week[6].date);
                       return (
@@ -274,9 +360,9 @@ export default function CalendarView() {
                             overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
                             cursor: 'pointer', zIndex: 2, lineHeight: '14px',
                           }}
-                          title={`${e.title} (${getForLabel(members, e)})`}
+                          title={e.title}
                         >
-                          {e.title}<span style={{ opacity: 0.75, fontWeight: 400, marginLeft: 4 }}>{getForLabel(members, e)}</span>
+                          {e.title}
                         </div>
                       );
                     })}
@@ -288,14 +374,14 @@ export default function CalendarView() {
         </div>
       </div>
 
-      {showModal && <EventModal date={selectedDate} members={members} sections={calSections} user={user} onClose={() => setShowModal(false)} onSave={handleSave} />}
-      {detailEvent && <EditEventModal event={detailEvent} members={members} sections={calSections} onClose={() => setDetailEvent(null)} onDelete={handleRemove} onSave={handleUpdate} />}
-      {dayDetailKey && <DayEventsPopup dateKey={dayDetailKey} byDay={byDay} weekSpanData={weekSpanData} weeks={weeks} members={members} onClose={() => setDayDetailKey(null)} onEventClick={(e) => { setDayDetailKey(null); setDetailEvent(e); }} />}
+      {showModal && <EventModal date={selectedDate} sections={calSections} user={user} onClose={() => setShowModal(false)} onSave={handleSave} />}
+      {detailEvent && <EditEventModal event={detailEvent} sections={calSections} onClose={() => setDetailEvent(null)} onDelete={handleRemove} onSave={handleUpdate} />}
+      {dayDetailKey && <DayEventsPopup dateKey={dayDetailKey} byDay={byDay} weekSpanData={weekSpanData} weeks={weeks} sections={calSections} onClose={() => setDayDetailKey(null)} onEventClick={(e) => { setDayDetailKey(null); setDetailEvent(e); }} />}
     </div>
   );
 }
 
-function EditEventModal({ event, members, sections, onClose, onDelete, onSave }) {
+function EditEventModal({ event, sections, onClose, onDelete, onSave }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(event.title);
   const [allDay, setAllDay] = useState(event.allDay || false);
@@ -305,13 +391,10 @@ function EditEventModal({ event, members, sections, onClose, onDelete, onSave })
   const [endDate, setEndDate] = useState(event.endDate || '');
   const [recurrence, setRecurrence] = useState(event.recurrence || 'none');
   const [section, setSection] = useState(event.section || 'default');
-  const [forAll, setForAll] = useState(event.forAll !== false);
-  const [forUsers, setForUsers] = useState(event.forUsers || []);
   const [customColor, setCustomColor] = useState(event.color || '');
   const [description, setDescription] = useState(event.description || '');
-  const c = getEventColor(members, event);
-  const forNames = event.forAll ? 'All members' : (event.forUsers || []).map(uid => members.find(m => m.id === uid)?.name || uid).join(', ') || 'Everyone';
-  const toggleUser = (uid) => setForUsers(s => s.includes(uid) ? s.filter(u => u !== uid) : [...s, uid]);
+  const c = getEventColor(sections, event);
+  const sectionName = sections.find(s => s.id === (event.section || 'default'))?.name || 'General';
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -319,7 +402,7 @@ function EditEventModal({ event, members, sections, onClose, onDelete, onSave })
     onSave(event.id, {
       title: title.trim(), date, startTime: allDay ? '00:00' : startTime, endTime: allDay ? '23:59' : endTime,
       endDate: endDate || date, section, allDay,
-      recurrence, forAll, forUsers: forAll ? [] : forUsers,
+      recurrence, forAll: true, forUsers: [],
       color: customColor || null,
       description: description.trim(),
       createdBy: event.createdBy, createdById: event.createdById, attendees: event.attendees || [],
@@ -336,7 +419,7 @@ function EditEventModal({ event, members, sections, onClose, onDelete, onSave })
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, color: 'var(--color-text-secondary)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Clock size={13} style={{ color: c }} /><span>{event.date} · {event.allDay ? 'All Day' : `${event.startTime} – ${event.endTime}`}</span></div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><UsersIcon size={13} style={{ color: c }} /><span>For: {forNames}</span></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: c }} /><span>{sectionName}</span></div>
             {event.recurrence && event.recurrence !== 'none' && <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Repeat size={13} />Repeats {event.recurrence}</div>}
           </div>
           {event.description && <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8, background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-subtle)' }}>
@@ -377,17 +460,6 @@ function EditEventModal({ event, members, sections, onClose, onDelete, onSave })
             <div style={{ flex: 1 }}><label style={{ display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 3 }}>Section</label><select className="input" value={section} onChange={e => setSection(e.target.value)} style={{ fontSize: 12, height: 32 }}>{(sections || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
             <div style={{ flex: 1 }}><label style={{ display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 3 }}>Repeat</label><select className="input" value={recurrence} onChange={e => setRecurrence(e.target.value)} style={{ fontSize: 12, height: 32 }}><option value="none">No repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>
           </div>
-          {members.length > 0 && <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>For</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              <button type="button" onClick={() => { setForAll(true); setForUsers([]); }} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid', borderColor: forAll ? 'var(--color-accent)' : 'var(--color-border-default)', background: forAll ? 'var(--color-accent-soft)' : 'var(--color-bg-tertiary)', color: forAll ? 'var(--color-accent)' : 'var(--color-text-muted)', fontSize: 11, fontWeight: forAll ? 600 : 400, cursor: 'pointer' }}>All</button>
-              {members.map((m, i) => { const sel = !forAll && forUsers.includes(m.id); return (
-                <button key={m.id} type="button" onClick={() => { setForAll(false); toggleUser(m.id); }} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid', borderColor: sel ? USER_COLORS[i % USER_COLORS.length] : 'var(--color-border-default)', background: sel ? `${USER_COLORS[i % USER_COLORS.length]}18` : 'var(--color-bg-tertiary)', color: sel ? USER_COLORS[i % USER_COLORS.length] : 'var(--color-text-muted)', fontSize: 11, fontWeight: sel ? 600 : 400, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: USER_COLORS[i % USER_COLORS.length] }} />{m.name}
-                </button>
-              ); })}
-            </div>
-          </div>}
           {/* Color Picker */}
           <div style={{ marginBottom: 12 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 6 }}><Palette size={12} /> Event Color</label>
@@ -408,7 +480,7 @@ function EditEventModal({ event, members, sections, onClose, onDelete, onSave })
   );
 }
 
-function EventModal({ date, members, sections, user, onClose, onSave }) {
+function EventModal({ date, sections, user, onClose, onSave }) {
   const [title, setTitle] = useState('');
   const [allDay, setAllDay] = useState(false);
   const [startTime, setStartTime] = useState('09:00');
@@ -416,12 +488,9 @@ function EventModal({ date, members, sections, user, onClose, onSave }) {
   const [endDate, setEndDate] = useState('');
   const [recurrence, setRecurrence] = useState('none');
   const [section, setSection] = useState(sections[0]?.id || 'default');
-  const [forAll, setForAll] = useState(true);
-  const [forUsers, setForUsers] = useState([]);
   const [customColor, setCustomColor] = useState('');
   const [description, setDescription] = useState('');
   const dateStr = date ? toDateKey(date) : toDateKey(new Date());
-  const toggleUser = (uid) => setForUsers(s => s.includes(uid) ? s.filter(u => u !== uid) : [...s, uid]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -432,7 +501,7 @@ function EventModal({ date, members, sections, user, onClose, onSave }) {
       recurrence,
       color: customColor || null,
       description: description.trim(),
-      forAll, forUsers: forAll ? [] : forUsers, attendees: [],
+      forAll: true, forUsers: [], attendees: [],
     });
   };
 
@@ -463,17 +532,6 @@ function EventModal({ date, members, sections, user, onClose, onSave }) {
             <div style={{ flex: 1 }}><label style={{ display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 3 }}>Section</label><select className="input" value={section} onChange={e => setSection(e.target.value)} style={{ fontSize: 12, height: 32 }}>{sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
             <div style={{ flex: 1 }}><label style={{ display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 3 }}>Repeat</label><select className="input" value={recurrence} onChange={e => setRecurrence(e.target.value)} style={{ fontSize: 12, height: 32 }}><option value="none">No repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>
           </div>
-          {members.length > 0 && <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>For</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              <button type="button" onClick={() => { setForAll(true); setForUsers([]); }} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid', borderColor: forAll ? 'var(--color-accent)' : 'var(--color-border-default)', background: forAll ? 'var(--color-accent-soft)' : 'var(--color-bg-tertiary)', color: forAll ? 'var(--color-accent)' : 'var(--color-text-muted)', fontSize: 11, fontWeight: forAll ? 600 : 400, cursor: 'pointer' }}>All</button>
-              {members.map((m, i) => { const sel = !forAll && forUsers.includes(m.id); return (
-                <button key={m.id} type="button" onClick={() => { setForAll(false); toggleUser(m.id); }} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid', borderColor: sel ? USER_COLORS[i % USER_COLORS.length] : 'var(--color-border-default)', background: sel ? `${USER_COLORS[i % USER_COLORS.length]}18` : 'var(--color-bg-tertiary)', color: sel ? USER_COLORS[i % USER_COLORS.length] : 'var(--color-text-muted)', fontSize: 11, fontWeight: sel ? 600 : 400, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: USER_COLORS[i % USER_COLORS.length] }} />{m.name}
-                </button>
-              ); })}
-            </div>
-          </div>}
           {/* Color Picker */}
           <div style={{ marginBottom: 12 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 6 }}><Palette size={12} /> Event Color</label>
@@ -494,7 +552,7 @@ function EventModal({ date, members, sections, user, onClose, onSave }) {
   );
 }
 
-function DayEventsPopup({ dateKey, byDay, weekSpanData, weeks, members, onClose, onEventClick }) {
+function DayEventsPopup({ dateKey, byDay, weekSpanData, weeks, sections, onClose, onEventClick }) {
   // Collect all events for this day: single-day + multi-day spanning
   const singleDay = byDay[dateKey] || [];
   const multiDay = [];
@@ -520,8 +578,7 @@ function DayEventsPopup({ dateKey, byDay, weekSpanData, weeks, members, onClose,
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
           {allEvents.length === 0 && <p style={{ fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center', padding: 20 }}>No events</p>}
           {allEvents.map(e => {
-            const c = getEventColor(members, e);
-            const forLabel = getForLabel(members, e);
+            const c = getEventColor(sections, e);
             const timeLabel = e.allDay ? 'All Day' : `${e.startTime} – ${e.endTime}`;
             const isMulti = e.endDate && e.endDate > e.date;
             return (
@@ -534,7 +591,6 @@ function DayEventsPopup({ dateKey, byDay, weekSpanData, weeks, members, onClose,
                     <Clock size={9} style={{ marginRight: 3, verticalAlign: 'middle' }} />
                     {timeLabel}
                     {isMulti && <span> · {e.date} → {e.endDate}</span>}
-                    <span style={{ marginLeft: 8 }}><UsersIcon size={9} style={{ marginRight: 3, verticalAlign: 'middle' }} />{forLabel}</span>
                   </div>
                 </div>
               </div>
