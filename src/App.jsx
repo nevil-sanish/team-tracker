@@ -118,6 +118,8 @@ export default function App() {
   }, [user?.id]);
 
   // ── Activity-based presence: active on interaction, inactive after 5 min ──
+  // Only real interactions (click, keydown, scroll) count.
+  // Tab hidden → immediate inactive. Tab visible → still needs interaction.
   useEffect(() => {
     if (!user?.id || !activeGroup?.id) return;
 
@@ -125,27 +127,34 @@ export default function App() {
     const uid = user.id;
     const INACTIVE_MS = 5 * 60 * 1000; // 5 minutes
     const DEBOUNCE_MS = 60 * 1000;     // write to Firestore at most once per 60s
+    const HEARTBEAT_MS = 60 * 1000;    // check every 60s as fallback
 
     let inactivityTimer = null;
     let lastFirestoreWrite = 0;
     let isCurrentlyOnline = false;
+    let lastInteractionAt = 0; // track the actual timestamp of last interaction
 
-    const markOnline = () => {
-      if (!isCurrentlyOnline) {
-        isCurrentlyOnline = true;
-        useStore.getState().setUserStatus('online');
-      }
-
+    const writeOnlineToFirestore = () => {
       const now = Date.now();
-      // Debounce Firestore writes — only write if 60s have passed since last write
       if (now - lastFirestoreWrite > DEBOUNCE_MS) {
         lastFirestoreWrite = now;
         updateMemberStatus(gid, uid, 'online').catch(() => {});
       }
     };
 
+    const markOnline = () => {
+      lastInteractionAt = Date.now();
+      if (!isCurrentlyOnline) {
+        isCurrentlyOnline = true;
+        useStore.getState().setUserStatus('online');
+      }
+      writeOnlineToFirestore();
+    };
+
     const markInactive = () => {
+      if (!isCurrentlyOnline) return; // already inactive
       isCurrentlyOnline = false;
+      lastFirestoreWrite = 0; // reset so next activation writes immediately
       useStore.getState().setUserStatus('offline');
       updateMemberStatus(gid, uid, 'offline').catch(() => {});
     };
@@ -155,26 +164,47 @@ export default function App() {
       inactivityTimer = setTimeout(markInactive, INACTIVE_MS);
     };
 
-    // On any user interaction → mark online + reset the 5-min countdown
+    // On any real user interaction → mark online + reset the 5-min countdown
     const handleActivity = () => {
+      // Ignore events when tab is hidden (synthetic / background events)
+      if (document.visibilityState === 'hidden') return;
       markOnline();
       resetInactivityTimer();
     };
 
-    // Mark online immediately on mount
-    lastFirestoreWrite = Date.now();
-    updateMemberStatus(gid, uid, 'online').catch(() => {});
-    isCurrentlyOnline = true;
-    useStore.getState().setUserStatus('online');
-    resetInactivityTimer();
+    // Tab visibility change
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        // Tab went to background → mark inactive immediately
+        clearTimeout(inactivityTimer);
+        markInactive();
+      }
+      // When tab becomes visible again, do NOT auto-mark online.
+      // Wait for a real interaction (click/keydown/scroll).
+    };
 
-    // Listen for user interactions
+    // Heartbeat: browsers throttle setTimeout in background tabs, so
+    // we also run an interval to catch stale "online" states.
+    const heartbeat = setInterval(() => {
+      if (!isCurrentlyOnline) return;
+      const elapsed = Date.now() - lastInteractionAt;
+      if (elapsed >= INACTIVE_MS) {
+        markInactive();
+      }
+    }, HEARTBEAT_MS);
+
+    // Do NOT auto-mark online on page load.
+    // Start as inactive — first interaction will activate.
+    updateMemberStatus(gid, uid, 'offline').catch(() => {});
+    useStore.getState().setUserStatus('offline');
+
+    // Listen for real user interactions only
     document.addEventListener('click', handleActivity, true);
     document.addEventListener('keydown', handleActivity, true);
     document.addEventListener('scroll', handleActivity, true);
-    document.addEventListener('mousemove', handleActivity, true);
+    document.addEventListener('visibilitychange', handleVisibility);
 
-    // Also handle tab close / navigate away
+    // Handle tab close / navigate away
     const handleBeforeUnload = () => {
       markInactive();
     };
@@ -182,10 +212,11 @@ export default function App() {
 
     return () => {
       clearTimeout(inactivityTimer);
+      clearInterval(heartbeat);
       document.removeEventListener('click', handleActivity, true);
       document.removeEventListener('keydown', handleActivity, true);
       document.removeEventListener('scroll', handleActivity, true);
-      document.removeEventListener('mousemove', handleActivity, true);
+      document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       // Mark inactive on cleanup (e.g. leaving group)
       markInactive();
