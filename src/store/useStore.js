@@ -45,6 +45,9 @@ export const useStore = create((set, get) => ({
   removeEvent: (id) => set(s => ({ events: s.events.filter(e => e.id !== id) })),
   updateEvent: (id, updates) => set(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...updates } : e) })),
 
+  calendarSections: [],
+  setCalendarSections: (sections) => set({ calendarSections: sections }),
+
   tasks: [],
   setTasks: (tasks) => set({ tasks }),
   addTask: (task) => set(s => ({ tasks: [...s.tasks, { ...task, id: task.id || generateId(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }] })),
@@ -118,7 +121,7 @@ export const useStore = create((set, get) => ({
   addCall: (call) => set(s => ({ calls: [...s.calls, { ...call, id: call.id || generateId() }] })),
 
   clearGroupData: () => set({
-    events: [], tasks: [], notes: [], noteFolders: [],
+    events: [], calendarSections: [], tasks: [], notes: [], noteFolders: [],
     channels: [], messages: [], activities: [], resources: [], resourceFolders: [],
     notifications: [], calls: [],
   }),
@@ -129,10 +132,12 @@ export const useStore = create((set, get) => ({
   personalEvents: initP.events || [],
   personalTasks: initP.tasks || [],
   personalNotes: initP.notes || [],
+  personalCalendarSections: [],
+  setPersonalCalendarSections: (sections) => set({ personalCalendarSections: sections }),
 
   _savePersonal: () => {
     const s = get();
-    savePersonal({ events: s.personalEvents, tasks: s.personalTasks, notes: s.personalNotes });
+    savePersonal({ events: s.personalEvents, tasks: s.personalTasks, notes: s.personalNotes, calendarSections: s.personalCalendarSections });
   },
 
   addPersonalEvent: (event) => { set(s => ({ personalEvents: [...s.personalEvents, { ...event, id: event.id || generateId() }] })); get()._savePersonal(); },
@@ -148,10 +153,15 @@ export const useStore = create((set, get) => ({
   removePersonalNote: (id) => { set(s => ({ personalNotes: s.personalNotes.filter(n => n.id !== id) })); get()._savePersonal(); },
   updatePersonalNote: (id, updates) => { set(s => ({ personalNotes: s.personalNotes.map(n => n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n) })); get()._savePersonal(); },
 
+  addPersonalCalendarSection: (sec) => { set(s => ({ personalCalendarSections: [...s.personalCalendarSections, { ...sec, id: sec.id || generateId() }] })); get()._savePersonal(); },
+  removePersonalCalendarSection: (id) => { set(s => ({ personalCalendarSections: s.personalCalendarSections.filter(sec => sec.id !== id) })); get()._savePersonal(); },
+  updatePersonalCalendarSection: (id, updates) => { set(s => ({ personalCalendarSections: s.personalCalendarSections.map(sec => sec.id === id ? { ...sec, ...updates } : sec) })); get()._savePersonal(); },
+
   // ═══════════════════════════════════════════
   // ACTIVE DATA GETTERS (returns correct data based on mode)
   // ═══════════════════════════════════════════
   getActiveEvents: () => { const s = get(); return s.mode === 'group' && s.activeGroup ? s.events : s.personalEvents; },
   getActiveTasks: () => { const s = get(); return s.mode === 'group' && s.activeGroup ? s.tasks : s.personalTasks; },
   getActiveNotes: () => { const s = get(); return s.mode === 'group' && s.activeGroup ? s.notes : s.personalNotes; },
+  getActiveCalendarSections: () => { const s = get(); return s.mode === 'group' && s.activeGroup ? s.calendarSections : s.personalCalendarSections; },
 }));

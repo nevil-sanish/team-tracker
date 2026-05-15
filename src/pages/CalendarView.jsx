@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, Repeat, Edit3, Palette, AlignLeft, Upload } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { toDateKey, generateId, nowIST } from '../lib/utils';
-import { saveEvent, deleteEvent as deleteEventFS, saveActivity } from '../lib/dataService';
+import { saveEvent, deleteEvent as deleteEventFS, saveActivity, saveCalendarSection, deleteCalendarSection as deleteCalSectionFS, savePersonalCalendarSection, deletePersonalCalendarSection as deletePersonalCalSectionFS } from '../lib/dataService';
 
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const SECTION_COLORS = [
@@ -90,35 +90,44 @@ function parseICS(text) {
 
 export default function CalendarView() {
   const store = useStore();
-  const { activeGroup, user, addNotification, mode, addPersonalEvent, removePersonalEvent, updatePersonalEvent, updateEvent, getActiveEvents } = store;
+  const { activeGroup, user, addNotification, mode, addPersonalEvent, removePersonalEvent, updatePersonalEvent, updateEvent, getActiveEvents, getActiveCalendarSections } = store;
   const events = getActiveEvents();
+  const storedSections = getActiveCalendarSections();
   const isGroup = mode === 'group' && !!activeGroup;
   const [cursor, setCursor] = useState(() => new Date());
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [detailEvent, setDetailEvent] = useState(null);
   const [dayDetailKey, setDayDetailKey] = useState(null);
-  const [calSections, setCalSections] = useState(() => {
-    try {
-      const saved = localStorage.getItem('tt_cal_sections');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return [{ id: 'default', name: 'General', color: SECTION_COLORS[0], enabled: true }];
-  });
   const [showAddSection, setShowAddSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
   const [newSectionColor, setNewSectionColor] = useState(SECTION_COLORS[1]);
   const [editSectionId, setEditSectionId] = useState(null);
   const [importSectionId, setImportSectionId] = useState(null);
+  const [disabledSections, setDisabledSections] = useState([]);
   const groupId = isGroup ? activeGroup.id : null;
   const members = isGroup ? (activeGroup.members || []) : [];
 
-  // Persist sections to localStorage
-  useEffect(() => {
-    localStorage.setItem('tt_cal_sections', JSON.stringify(calSections));
-  }, [calSections]);
+  // Ensure there's always a default section; merge enabled state from local toggle
+  const calSections = useMemo(() => {
+    const hasDefault = storedSections.some(s => s.id === 'default');
+    const base = hasDefault ? storedSections : [{ id: 'default', name: 'General', color: SECTION_COLORS[0] }, ...storedSections];
+    return base.map(s => ({ ...s, enabled: !disabledSections.includes(s.id) }));
+  }, [storedSections, disabledSections]);
 
   const nav = (dir) => { const d = new Date(cursor); d.setMonth(d.getMonth() + dir); setCursor(d); };
+
+  // Initialize default section in Firebase if none exist
+  useEffect(() => {
+    if (storedSections.length === 0 && user?.id) {
+      const defaultSec = { id: 'default', name: 'General', color: SECTION_COLORS[0] };
+      if (isGroup && groupId) {
+        saveCalendarSection(groupId, defaultSec);
+      } else {
+        savePersonalCalendarSection(user.id, defaultSec);
+      }
+    }
+  }, [storedSections.length, isGroup, groupId, user?.id]);
 
   const handleSave = async (event) => {
     const full = { ...event, createdBy: user?.name || 'You', createdById: user?.id || '' };
@@ -139,14 +148,11 @@ export default function CalendarView() {
   };
 
   const handleRemove = async (id) => {
-    const ev = events.find(e => e.id === id);
     if (isGroup && groupId) {
       await deleteEventFS(groupId, id);
-      await saveActivity(groupId, { kind: 'event_deleted', actorName: user?.name || 'You', target: ev?.title || 'Event', at: new Date().toISOString() });
-    } else {
-      removePersonalEvent(id);
-    }
-    addNotification({ title: 'Event Removed', message: `"${ev?.title || 'Event'}" removed`, type: 'alert', section: 'Calendar' });
+      await saveActivity(groupId, { kind: 'event_deleted', actorName: user?.name || 'You', target: id, at: new Date().toISOString() });
+    } else removePersonalEvent(id);
+    addNotification({ title: 'Event Deleted', message: 'Event removed', type: 'info', section: 'Calendar' });
     setDetailEvent(null);
   };
 
@@ -246,10 +252,36 @@ export default function CalendarView() {
     });
   }, [weeks, filteredEvents]);
 
-  const addSection = () => { if (!newSectionName.trim()) return; setCalSections(s => [...s, { id: generateId(), name: newSectionName.trim(), color: newSectionColor, enabled: true }]); setNewSectionName(''); setNewSectionColor(SECTION_COLORS[(calSections.length) % SECTION_COLORS.length]); setShowAddSection(false); };
-  const toggleSection = (id) => setCalSections(s => s.map(sec => sec.id === id ? { ...sec, enabled: !sec.enabled } : sec));
-  const deleteSection = (id) => { if (id === 'default') return; setCalSections(s => s.filter(sec => sec.id !== id)); };
-  const updateSectionColor = (id, color) => setCalSections(s => s.map(sec => sec.id === id ? { ...sec, color } : sec));
+  const addSection = async () => {
+    if (!newSectionName.trim()) return;
+    const sec = { id: generateId(), name: newSectionName.trim(), color: newSectionColor };
+    if (isGroup && groupId) {
+      await saveCalendarSection(groupId, sec);
+    } else if (user?.id) {
+      await savePersonalCalendarSection(user.id, sec);
+    }
+    setNewSectionName(''); setNewSectionColor(SECTION_COLORS[(calSections.length) % SECTION_COLORS.length]); setShowAddSection(false);
+  };
+  const toggleSection = (id) => setDisabledSections(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  const deleteSection = async (id) => {
+    if (id === 'default') return;
+    if (isGroup && groupId) {
+      await deleteCalSectionFS(groupId, id);
+    } else if (user?.id) {
+      await deletePersonalCalSectionFS(user.id, id);
+    }
+  };
+  const updateSectionColor = async (id, color) => {
+    const sec = calSections.find(s => s.id === id);
+    if (!sec) return;
+    const updated = { ...sec, color };
+    delete updated.enabled; // don't persist UI-only field
+    if (isGroup && groupId) {
+      await saveCalendarSection(groupId, updated);
+    } else if (user?.id) {
+      await savePersonalCalendarSection(user.id, updated);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col animate-fade-in">

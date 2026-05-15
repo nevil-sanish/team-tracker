@@ -105,6 +105,52 @@ export function subscribeEvents(groupId, callback) {
   });
 }
 
+/* ── CALENDAR SECTIONS ── */
+
+export async function saveCalendarSection(groupId, section) {
+  const id = section.id || generateId();
+  await setDoc(groupDocRef(groupId, 'calendarSections', id), { ...section, id });
+  return { ...section, id };
+}
+
+export async function deleteCalendarSection(groupId, sectionId) {
+  await deleteDoc(groupDocRef(groupId, 'calendarSections', sectionId));
+}
+
+export function subscribeCalendarSections(groupId, callback) {
+  return onSnapshot(groupCol(groupId, 'calendarSections'), (snap) => {
+    const sections = snap.docs.map(d => d.data());
+    callback(sections);
+  });
+}
+
+/* ── PERSONAL CALENDAR SECTIONS (user-level) ── */
+
+function userCalSectionsCol(userId) {
+  return collection(db, 'users', userId, 'calendarSections');
+}
+
+function userCalSectionDoc(userId, sectionId) {
+  return doc(db, 'users', userId, 'calendarSections', sectionId);
+}
+
+export async function savePersonalCalendarSection(userId, section) {
+  const id = section.id || generateId();
+  await setDoc(userCalSectionDoc(userId, id), { ...section, id });
+  return { ...section, id };
+}
+
+export async function deletePersonalCalendarSection(userId, sectionId) {
+  await deleteDoc(userCalSectionDoc(userId, sectionId));
+}
+
+export function subscribePersonalCalendarSections(userId, callback) {
+  return onSnapshot(userCalSectionsCol(userId), (snap) => {
+    const sections = snap.docs.map(d => d.data());
+    callback(sections);
+  });
+}
+
 /* ── NOTES ── */
 
 export async function saveNote(groupId, note) {

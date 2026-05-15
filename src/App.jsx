@@ -11,7 +11,8 @@ import { subscribeToGroup, leaveGroup as leaveGroupFS, updateMemberStatus, getUs
 import {
   subscribeTasks, subscribeEvents, subscribeNotes,
   subscribeNoteFolders, subscribeResourceFolders, subscribeChannels, subscribeMessages,
-  subscribeActivities, subscribeResources,
+  subscribeActivities, subscribeResources, subscribeCalendarSections,
+  subscribePersonalCalendarSections,
 } from './lib/dataService';
 
 // Pages
@@ -28,7 +29,8 @@ export default function App() {
   const {
     user, setUser, activeGroup, setActiveGroup, showGroupSetup,
     setMode, setTasks, setEvents, setNotes, setNoteFolders, setResourceFolders,
-    setChannels, setMessages, setActivities, setResources, clearGroupData,
+    setChannels, setMessages, setActivities, setResources, setCalendarSections,
+    setPersonalCalendarSections, clearGroupData,
   } = useStore();
   const [loading, setLoading] = useState(true);
 
@@ -91,6 +93,7 @@ export default function App() {
       }),
       subscribeTasks(gid, setTasks),
       subscribeEvents(gid, setEvents),
+      subscribeCalendarSections(gid, setCalendarSections),
       subscribeNotes(gid, setNotes),
       subscribeNoteFolders(gid, setNoteFolders),
       subscribeResourceFolders(gid, setResourceFolders),
@@ -104,6 +107,15 @@ export default function App() {
       unsubs.forEach(u => u && u());
     };
   }, [activeGroup?.id]);
+
+  // Subscribe to personal calendar sections (user-level, always active when logged in)
+  useEffect(() => {
+    if (!user?.id) return;
+    const unsub = subscribePersonalCalendarSections(user.id, (sections) => {
+      setPersonalCalendarSections(sections);
+    });
+    return () => unsub();
+  }, [user?.id]);
 
   // Automatic online/offline presence
   useEffect(() => {
