@@ -98,7 +98,13 @@ export default function CalendarView() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [detailEvent, setDetailEvent] = useState(null);
   const [dayDetailKey, setDayDetailKey] = useState(null);
-  const [calSections, setCalSections] = useState([{ id: 'default', name: 'General', color: SECTION_COLORS[0], enabled: true }]);
+  const [calSections, setCalSections] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tt_cal_sections');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [{ id: 'default', name: 'General', color: SECTION_COLORS[0], enabled: true }];
+  });
   const [showAddSection, setShowAddSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
   const [newSectionColor, setNewSectionColor] = useState(SECTION_COLORS[1]);
@@ -106,6 +112,11 @@ export default function CalendarView() {
   const [importSectionId, setImportSectionId] = useState(null);
   const groupId = isGroup ? activeGroup.id : null;
   const members = isGroup ? (activeGroup.members || []) : [];
+
+  // Persist sections to localStorage
+  useEffect(() => {
+    localStorage.setItem('tt_cal_sections', JSON.stringify(calSections));
+  }, [calSections]);
 
   const nav = (dir) => { const d = new Date(cursor); d.setMonth(d.getMonth() + dir); setCursor(d); };
 
