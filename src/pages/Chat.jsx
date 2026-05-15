@@ -53,7 +53,7 @@ export default function Chat() {
   return (
     <div className="h-full flex animate-fade-in" style={{ overflow: 'hidden' }}>
       {/* Sidebar */}
-      <aside className="hidden md:flex flex-col" style={{ width: 260, borderRight: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-secondary)', flexShrink: 0 }}>
+      <aside className="chat-sidebar hidden md:flex flex-col" style={{ width: 260, borderRight: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-secondary)', flexShrink: 0 }}>
         {/* Header */}
         <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid var(--color-border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)' }}>Chat</span>
@@ -87,11 +87,11 @@ export default function Chat() {
 
         {/* Members */}
         <div style={{ borderTop: '1px solid var(--color-border-subtle)', padding: 10 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--color-text-muted)', display: 'block', marginBottom: 6 }}>Online · {(activeGroup.members || []).filter(m => m.status === 'online').length}</span>
+          <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--color-text-muted)', display: 'block', marginBottom: 6 }}>Active · {(activeGroup.members || []).filter(m => m.status === 'online').length}</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 120, overflowY: 'auto' }}>
             {(activeGroup.members || []).map(m => (
               <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Avatar name={m.name} avatar={m.avatar} size="xs" status={m.status || 'online'} showStatus />
+                <Avatar name={m.name} avatar={m.avatar} size="xs" status={m.status || 'offline'} showStatus />
                 <span style={{ flex: 1, fontSize: 11, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
               </div>
             ))}
@@ -103,7 +103,7 @@ export default function Chat() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {selected && (<>
           {/* Channel Header */}
-          <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--color-border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="chat-channel-header" style={{ padding: '10px 20px', borderBottom: '1px solid var(--color-border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: 10, background: selected.isGroup ? 'var(--color-bg-tertiary)' : 'var(--color-accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {selected.isGroup ? <Users size={15} style={{ color: 'var(--color-text-muted)' }} /> : <Hash size={16} style={{ color: 'var(--color-accent)' }} />}
             </div>
@@ -158,7 +158,7 @@ function MessageList({ messages, currentUserId }) {
   const scrollRef = useRef(null);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages]);
   return (
-    <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+    <div ref={scrollRef} className="chat-message-area" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
       {messages.length === 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8 }}>
           <MessageSquare size={32} style={{ color: 'var(--color-text-disabled)' }} />
@@ -194,7 +194,7 @@ function MessageComposer({ channelName, onSend }) {
   const [msg, setMsg] = useState('');
   const handleSend = () => { if (!msg.trim()) return; onSend(msg.trim()); setMsg(''); };
   return (
-    <div style={{ borderTop: '1px solid var(--color-border-subtle)', padding: 12 }}>
+    <div className="chat-composer" style={{ borderTop: '1px solid var(--color-border-subtle)', padding: 12 }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-default)', borderRadius: 12, padding: '6px 10px' }}>
         <textarea rows={1} value={msg} onChange={e => setMsg(e.target.value)} placeholder={`Message ${channelName}`}
           style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 13, resize: 'none', minHeight: 24, maxHeight: 120, padding: '4px 0', color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)' }}

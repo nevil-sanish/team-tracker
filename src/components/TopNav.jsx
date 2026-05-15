@@ -67,7 +67,7 @@ export function TopBar({ title, subtitle, actions }) {
 
   return (
     <header
-      className="flex items-center justify-between shrink-0 gap-4"
+      className="flex items-center justify-between shrink-0 gap-4 top-bar-mobile"
       style={{
         height: 60,
         padding: '0 24px',
@@ -158,7 +158,7 @@ export function TopBar({ title, subtitle, actions }) {
                     style={{ cursor: 'default', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch' }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-                      <Avatar name={m.name} avatar={m.avatar} size="sm" status={m.status || 'online'} showStatus />
+                      <Avatar name={m.name} avatar={m.avatar} size="sm" status={m.status || 'offline'} showStatus />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{
                           fontSize: 12,
@@ -178,7 +178,7 @@ export function TopBar({ title, subtitle, actions }) {
                       </div>
                       <div style={{
                         width: 8, height: 8, borderRadius: '50%',
-                        background: (m.status === 'online' || !m.status) ? 'var(--color-status-online)' : 'var(--color-status-offline)',
+                        background: m.status === 'online' ? 'var(--color-status-online)' : 'var(--color-status-offline)',
                         flexShrink: 0,
                       }} />
                     </div>
@@ -379,7 +379,7 @@ export function TopBar({ title, subtitle, actions }) {
         </div>
 
         {/* Profile */}
-        <div ref={profileRef} style={{ position: 'relative' }}>
+        <div ref={profileRef} style={{ position: 'relative' }} className="top-bar-profile-desktop">
           <button
             onClick={() => setShowProfile(!showProfile)}
             className="hidden lg:flex items-center gap-2.5"

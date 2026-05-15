@@ -28,7 +28,7 @@ export async function createGroup(name, password, user) {
     name: user.name,
     email: user.email,
     avatar: user.avatar || null,
-    status: 'online',
+    status: 'offline',
     joinedAt: new Date().toISOString(),
     isAdmin: true,
   };
@@ -84,7 +84,7 @@ export async function joinGroup(name, password, user) {
       name: user.name,
       email: user.email,
       avatar: user.avatar || null,
-      status: 'online',
+      status: 'offline',
       joinedAt: new Date().toISOString(),
       isAdmin: false,
     };
@@ -93,7 +93,7 @@ export async function joinGroup(name, password, user) {
     // Existing member — update status to online and refresh profile data
     updatedMembers = currentMembers.map(m =>
       m.id === user.id
-        ? { ...m, name: user.name, email: user.email, avatar: user.avatar || null, status: 'online' }
+        ? { ...m, name: user.name, email: user.email, avatar: user.avatar || null, status: 'offline' }
         : m
     );
   }

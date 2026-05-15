@@ -288,7 +288,7 @@ export default function CalendarView() {
       {/* Hidden ICS import input */}
       <input type="file" id="ics-import-input" accept=".ics,.ical" style={{ display: 'none' }} onChange={(e) => handleImportICS(e, importSectionId)} />
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-5 py-2" style={{ borderBottom: '1px solid var(--color-border-subtle)', flexShrink: 0 }}>
+      <div className="calendar-top-bar flex items-center justify-between px-5 py-2" style={{ borderBottom: '1px solid var(--color-border-subtle)', flexShrink: 0 }}>
         <div className="flex items-center gap-2">
           <button onClick={() => setCursor(new Date())} className="btn btn-secondary btn-sm" style={{ fontSize: 11 }}>Today</button>
           <button onClick={() => nav(-1)} className="btn-ghost btn-icon" style={{ width: 28, height: 28 }}><ChevronLeft size={14} /></button>
@@ -300,7 +300,7 @@ export default function CalendarView() {
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
         {/* Left Sidebar */}
-        <div style={{ width: 240, flexShrink: 0, borderRight: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-secondary)', display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: 12 }}>
+        <div className="calendar-sidebar" style={{ width: 240, flexShrink: 0, borderRight: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-secondary)', display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: 12 }}>
           <button className="btn btn-primary" onClick={() => { setSelectedDate(new Date()); setShowModal(true); }} style={{ width: '100%', marginBottom: 14, borderRadius: 10, padding: '8px 14px', fontSize: 12 }}><Plus size={13} /> Create Event</button>
           {/* Mini Calendar */}
           <div style={{ background: 'var(--color-bg-tertiary)', borderRadius: 10, padding: 10, border: '1px solid var(--color-border-subtle)', marginBottom: 14 }}>
@@ -360,11 +360,11 @@ export default function CalendarView() {
         </div>
 
         {/* Month Grid — fixed height rows */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '8px 12px' }}>
+        <div className="calendar-grid-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '8px 12px' }}>
           <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--color-border-subtle)', flex: 1, display: 'flex', flexDirection: 'column' }}>
             {/* Day headers */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', borderBottom: '1px solid var(--color-border-subtle)', flexShrink: 0 }}>
-              {DAYS.map(d => <div key={d} style={{ background: 'var(--color-bg-tertiary)', padding: 6, fontSize: 10, fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)' }}>{d}</div>)}
+              {DAYS.map(d => <div key={d} className="calendar-day-header" style={{ background: 'var(--color-bg-tertiary)', padding: 6, fontSize: 10, fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)' }}>{d}</div>)}
             </div>
             {/* Week rows */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -379,9 +379,9 @@ export default function CalendarView() {
                       const maxSingle = spanH > 20 ? 1 : 2;
                       const totalInCell = de.length + multiEvents.filter(e => di >= e._si && di <= e._ei).length;
                       return (
-                        <div key={k} onClick={() => { setSelectedDate(d.date); setShowModal(true); }} style={{ background: d.inMonth ? 'var(--color-bg-elevated)' : 'var(--color-bg-elevated)', padding: '2px 3px', cursor: 'pointer', opacity: isPast ? 0.5 : 1, display: 'flex', flexDirection: 'column', borderTop: isT ? '2px solid var(--color-accent)' : '2px solid transparent', overflow: 'hidden', borderRight: di < 6 ? '1px solid var(--color-border-subtle)' : 'none' }}>
+                        <div key={k} className="calendar-day-cell" onClick={() => { setSelectedDate(d.date); setShowModal(true); }} style={{ background: d.inMonth ? 'var(--color-bg-elevated)' : 'var(--color-bg-elevated)', padding: '2px 3px', cursor: 'pointer', opacity: isPast ? 0.5 : 1, display: 'flex', flexDirection: 'column', borderTop: isT ? '2px solid var(--color-accent)' : '2px solid transparent', overflow: 'hidden', borderRight: di < 6 ? '1px solid var(--color-border-subtle)' : 'none' }}>
                           <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 1, flexShrink: 0 }}>
-                            <div style={{ fontSize: 11, fontWeight: isT ? 700 : 500, width: 22, height: 22, borderRadius: '50%', background: isT ? '#7986CB' : 'transparent', color: isT ? 'white' : 'var(--color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{d.date.getDate()}</div>
+                            <div className="calendar-day-num" style={{ fontSize: 11, fontWeight: isT ? 700 : 500, width: 22, height: 22, borderRadius: '50%', background: isT ? '#7986CB' : 'transparent', color: isT ? 'white' : 'var(--color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{d.date.getDate()}</div>
                           </div>
                           {/* Spacer for multi-day lanes */}
                           <div style={{ height: spanH, flexShrink: 0 }} />
@@ -391,7 +391,7 @@ export default function CalendarView() {
                               const c = getEventColor(calSections, e);
                               const timeLabel = e.allDay ? '' : e.startTime;
                               return (
-                                <div key={e.id + (e._recurring ? '_r' : '')} onClick={(ev) => { ev.stopPropagation(); setDetailEvent(e); }} style={{ fontSize: 9, padding: '2px 4px', borderRadius: 4, background: c, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600, cursor: 'pointer', lineHeight: 1.3 }} title={e.title}>
+                                <div key={e.id + (e._recurring ? '_r' : '')} className="calendar-event-pill" onClick={(ev) => { ev.stopPropagation(); setDetailEvent(e); }} style={{ fontSize: 9, padding: '2px 4px', borderRadius: 4, background: c, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600, cursor: 'pointer', lineHeight: 1.3 }} title={e.title}>
                                   {timeLabel ? `${timeLabel} ` : ''}{e.title}
                                 </div>
                               );
@@ -409,6 +409,7 @@ export default function CalendarView() {
                       return (
                         <div
                           key={e.id + '_span_' + wi}
+                          className="calendar-multi-event"
                           onClick={(ev) => { ev.stopPropagation(); setDetailEvent(e); }}
                           style={{
                             position: 'absolute',

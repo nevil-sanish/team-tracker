@@ -48,7 +48,7 @@ export default function Dashboard() {
   }, [todayEvents.length, uncompletedTasks.length]);
 
   return (
-    <div className="h-full flex flex-col animate-fade-in" style={{ padding: '14px 20px', overflow: 'hidden' }}>
+    <div className="h-full flex flex-col animate-fade-in" style={{ padding: '14px 20px', overflow: 'auto' }}>
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%', gap: 10 }}>
 
         {/* Hero */}
@@ -63,7 +63,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stat Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, flexShrink: 0 }}>
+        <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, flexShrink: 0 }}>
           <NavLink to="/tasks" className="card" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--color-success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <CheckSquare size={18} style={{ color: 'var(--color-success)' }} />
@@ -97,7 +97,7 @@ export default function Dashboard() {
         </div>
 
         {/* Bottom Two Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, flex: 1, minHeight: 0 }}>
+        <div className="dashboard-bottom-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, flex: 1, minHeight: 0 }}>
           {/* Today's Events */}
           <NavLink to="/calendar" className="card" style={{ padding: '10px 14px', textDecoration: 'none', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexShrink: 0 }}>

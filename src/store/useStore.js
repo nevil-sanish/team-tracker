@@ -33,7 +33,7 @@ export const useStore = create((set, get) => ({
   leaveGroup: () => set({ activeGroup: null }),
 
   // ── User Status ──
-  userStatus: 'online',
+  userStatus: 'offline',
   setUserStatus: (status) => set({ userStatus: status }),
 
   // ═══════════════════════════════════════════

@@ -109,8 +109,8 @@ export default function Tasks() {
   return (
     <div className="h-full flex flex-col animate-fade-in">
       {/* Controls */}
-      <div className="flex items-center justify-between flex-wrap gap-3 px-6 py-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div className="flex items-center gap-2">
+      <div className="tasks-controls-bar flex items-center justify-between flex-wrap gap-3 px-6 py-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div className="tasks-controls-left flex items-center gap-2">
           <div className="tab-group">
             <button className={`tab-item ${view === 'kanban' ? 'active' : ''}`} onClick={() => setView('kanban')} style={{ fontSize: 11, padding: '4px 12px' }}>
               <LayoutGrid size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /> Kanban
@@ -131,7 +131,7 @@ export default function Tasks() {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="tasks-controls-right flex items-center gap-3">
           {overdueCount > 0 && (
             <span style={{ fontSize: 11, color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}>
               <AlertCircle size={13} /> {overdueCount} overdue
@@ -148,7 +148,7 @@ export default function Tasks() {
 
       {/* Filters Row */}
       {showFilters && (
-        <div className="flex flex-wrap items-center gap-2 px-6 py-2 animate-slide-in" style={{ borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-secondary)' }}>
+        <div className="filters-row flex flex-wrap items-center gap-2 px-6 py-2 animate-slide-in" style={{ borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-secondary)' }}>
           <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-muted)' }}>Priority:</span>
           {Object.entries(priorityMeta).map(([key, meta]) => (
             <button
@@ -219,12 +219,12 @@ export default function Tasks() {
 /* ── Kanban View ── */
 function KanbanView({ tasks, members, user, onToggleComplete, onRemove, onEdit }) {
   return (
-    <div className="h-full overflow-x-auto px-6 py-5" style={{ display: 'flex', gap: 16 }}>
+    <div className="kanban-container h-full overflow-x-auto px-6 py-5" style={{ display: 'flex', gap: 16 }}>
       {COLUMNS.map(status => {
         const items = tasks.filter(t => t.status === status);
         const meta = statusMeta[status];
         return (
-          <div key={status} style={{ flex: 1, minWidth: 240, display: 'flex', flexDirection: 'column' }}>
+          <div key={status} className="kanban-column" style={{ flex: 1, minWidth: 240, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: meta.color }} />

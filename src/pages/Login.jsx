@@ -38,7 +38,8 @@ export default function Login() {
       <div className="animate-slide-up" style={{
         textAlign: 'center',
         maxWidth: 420,
-        padding: 40,
+        width: '100%',
+        padding: '40px 20px',
         position: 'relative',
         zIndex: 1,
       }}>

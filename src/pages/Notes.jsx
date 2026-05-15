@@ -106,7 +106,7 @@ export default function Notes() {
 
   return (
     <div className="h-full flex animate-fade-in" style={{ overflow: 'hidden' }}>
-      <aside className="hidden md:flex flex-col" style={{ width: 280, borderRight: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-secondary)', flexShrink: 0 }}>
+      <aside className="notes-sidebar hidden md:flex flex-col" style={{ width: 280, borderRight: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-secondary)', flexShrink: 0 }}>
         <div style={{ padding: 12, borderBottom: '1px solid var(--color-border-subtle)' }}>
           <div style={{ position: 'relative' }}>
             <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-disabled)' }} />

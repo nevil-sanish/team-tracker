@@ -121,7 +121,7 @@ export default function ResourceHub() {
 
   return (
     <div className="h-full flex animate-fade-in" style={{ overflow: 'hidden' }}>
-      <aside className="hidden md:flex flex-col" style={{ width: 280, borderRight: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-secondary)', flexShrink: 0 }}>
+      <aside className="resources-sidebar hidden md:flex flex-col" style={{ width: 280, borderRight: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-secondary)', flexShrink: 0 }}>
         <div style={{ padding: 12, borderBottom: '1px solid var(--color-border-subtle)' }}>
           <div style={{ position: 'relative', marginBottom: 12 }}>
             <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-disabled)' }} />
@@ -180,8 +180,8 @@ export default function ResourceHub() {
             </div>
          </div>
          
-         <div style={{ flex: 1, padding: 24, overflowX: 'auto' }}>
-            <div style={{ display: 'flex', gap: 24, height: '100%', minWidth: 600 }}>
+         <div className="resources-main-content" style={{ flex: 1, padding: 24, overflowX: 'auto' }}>
+            <div className="resources-columns" style={{ display: 'flex', gap: 24, height: '100%', minWidth: 600 }}>
               
               {/* Column 1: Links */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--color-bg-secondary)', borderRadius: 12, border: '1px solid var(--color-border-subtle)', overflow: 'hidden' }}>
