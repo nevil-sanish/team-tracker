@@ -42,18 +42,39 @@ function parseICS(text) {
     const parseDt = (dt) => {
       if (!dt) return { date: '', time: '', allDay: true };
       // 8-char = date-only (all day), 15-char+ = datetime
-      if (dt.length === 8) return { date: `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}`, time: '', allDay: true };
-      return { date: `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}`, time: `${dt.slice(9,11)}:${dt.slice(11,13)}`, allDay: false };
+      if (dt.length === 8) {
+        return { date: `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}`, time: '', allDay: true };
+      }
+      // Handle UTC (Z suffix) by converting to local time
+      const y = +dt.slice(0,4), mo = +dt.slice(4,6)-1, d = +dt.slice(6,8);
+      const h = +dt.slice(9,11), mi = +dt.slice(11,13);
+      let jsDate;
+      if (dt.endsWith('Z')) {
+        jsDate = new Date(Date.UTC(y, mo, d, h, mi));
+      } else {
+        jsDate = new Date(y, mo, d, h, mi);
+      }
+      const localDate = `${jsDate.getFullYear()}-${String(jsDate.getMonth()+1).padStart(2,'0')}-${String(jsDate.getDate()).padStart(2,'0')}`;
+      const localTime = `${String(jsDate.getHours()).padStart(2,'0')}:${String(jsDate.getMinutes()).padStart(2,'0')}`;
+      return { date: localDate, time: localTime, allDay: false };
     };
     const start = parseDt(dtStart);
     const end = parseDt(dtEnd);
     if (!start.date) continue;
+    // ICS all-day DTEND is exclusive (RFC 5545) — subtract 1 day for inclusive endDate
+    let endDate = end.date || start.date;
+    if (start.allDay && end.allDay && endDate > start.date) {
+      const ed = new Date(endDate + 'T00:00:00');
+      ed.setDate(ed.getDate() - 1);
+      endDate = `${ed.getFullYear()}-${String(ed.getMonth()+1).padStart(2,'0')}-${String(ed.getDate()).padStart(2,'0')}`;
+    }
+    // If endDate equals startDate after correction, it's a single-day event
     events.push({
       id: generateId(),
       title,
       description: desc,
       date: start.date,
-      endDate: end.date || start.date,
+      endDate,
       startTime: start.allDay ? '00:00' : start.time,
       endTime: end.allDay ? '23:59' : (end.time || '23:59'),
       allDay: start.allDay,
