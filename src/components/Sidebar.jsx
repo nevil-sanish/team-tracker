@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, CheckSquare, FileText,
-  Activity, Folder, MessageSquare,
+  Folder, MessageSquare,
   ChevronLeft, ChevronRight, LogOut, User, Users
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -25,7 +25,6 @@ const groupItems = [
   { icon: FileText, label: 'Notes', path: '/notes' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
   { icon: Folder, label: 'Resources', path: '/resources' },
-  { icon: Activity, label: 'Activity', path: '/activity' },
 ];
 
 export function Sidebar() {
