@@ -117,49 +117,78 @@ export default function App() {
     return () => unsub();
   }, [user?.id]);
 
-  // Automatic online/offline presence
+  // ── Activity-based presence: active on interaction, inactive after 5 min ──
   useEffect(() => {
     if (!user?.id || !activeGroup?.id) return;
 
     const gid = activeGroup.id;
     const uid = user.id;
+    const INACTIVE_MS = 5 * 60 * 1000; // 5 minutes
+    const DEBOUNCE_MS = 60 * 1000;     // write to Firestore at most once per 60s
 
-    // Set online when page is visible
-    const setOnline = () => {
-      updateMemberStatus(gid, uid, 'online').catch(() => {});
-      useStore.getState().setUserStatus('online');
-    };
+    let inactivityTimer = null;
+    let lastFirestoreWrite = 0;
+    let isCurrentlyOnline = false;
 
-    // Set offline when page is hidden or closing
-    const setOffline = () => {
-      updateMemberStatus(gid, uid, 'offline').catch(() => {});
-      useStore.getState().setUserStatus('offline');
-    };
+    const markOnline = () => {
+      if (!isCurrentlyOnline) {
+        isCurrentlyOnline = true;
+        useStore.getState().setUserStatus('online');
+      }
 
-    // Mark online immediately
-    setOnline();
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        setOnline();
-      } else {
-        setOffline();
+      const now = Date.now();
+      // Debounce Firestore writes — only write if 60s have passed since last write
+      if (now - lastFirestoreWrite > DEBOUNCE_MS) {
+        lastFirestoreWrite = now;
+        updateMemberStatus(gid, uid, 'online').catch(() => {});
       }
     };
 
-    const handleBeforeUnload = () => {
-      // Use sendBeacon for reliable offline update on tab close
-      setOffline();
+    const markInactive = () => {
+      isCurrentlyOnline = false;
+      useStore.getState().setUserStatus('offline');
+      updateMemberStatus(gid, uid, 'offline').catch(() => {});
     };
 
-    document.addEventListener('visibilitychange', handleVisibility);
+    const resetInactivityTimer = () => {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(markInactive, INACTIVE_MS);
+    };
+
+    // On any user interaction → mark online + reset the 5-min countdown
+    const handleActivity = () => {
+      markOnline();
+      resetInactivityTimer();
+    };
+
+    // Mark online immediately on mount
+    lastFirestoreWrite = Date.now();
+    updateMemberStatus(gid, uid, 'online').catch(() => {});
+    isCurrentlyOnline = true;
+    useStore.getState().setUserStatus('online');
+    resetInactivityTimer();
+
+    // Listen for user interactions
+    document.addEventListener('click', handleActivity, true);
+    document.addEventListener('keydown', handleActivity, true);
+    document.addEventListener('scroll', handleActivity, true);
+    document.addEventListener('mousemove', handleActivity, true);
+
+    // Also handle tab close / navigate away
+    const handleBeforeUnload = () => {
+      markInactive();
+    };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
+      clearTimeout(inactivityTimer);
+      document.removeEventListener('click', handleActivity, true);
+      document.removeEventListener('keydown', handleActivity, true);
+      document.removeEventListener('scroll', handleActivity, true);
+      document.removeEventListener('mousemove', handleActivity, true);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Mark offline when effect cleans up (e.g. leaving group)
-      setOffline();
+      // Mark inactive on cleanup (e.g. leaving group)
+      markInactive();
     };
   }, [user?.id, activeGroup?.id]);
 

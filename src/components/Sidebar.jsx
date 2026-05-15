@@ -169,22 +169,38 @@ export function Sidebar() {
                 </div>
                 {/* Member list */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 70, overflowY: 'auto', marginBottom: 6 }}>
-                  {(activeGroup.members || []).map(m => (
-                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <div style={{
-                        width: 6, height: 6, borderRadius: '50%',
-                        background: m.status === 'online' ? 'var(--color-status-online)' : 'var(--color-status-offline)',
-                        flexShrink: 0,
-                      }} />
-                      <span style={{
-                        fontSize: 10,
-                        color: m.id === user?.id ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-                        fontWeight: m.id === user?.id ? 600 : 400,
-                      }}>
-                        {m.name}{m.id === user?.id ? ' (you)' : ''}
-                      </span>
-                    </div>
-                  ))}
+                  {(activeGroup.members || []).map(m => {
+                    const isActive = m.status === 'online';
+                    const lastActiveLabel = m.lastActiveAt
+                      ? `Last active: ${new Date(m.lastActiveAt).toLocaleString()}`
+                      : '';
+                    return (
+                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={!isActive ? lastActiveLabel : 'Currently active'}>
+                        <div style={{
+                          width: 6, height: 6, borderRadius: '50%',
+                          background: isActive ? 'var(--color-status-online)' : 'var(--color-status-offline)',
+                          flexShrink: 0,
+                          boxShadow: isActive ? '0 0 6px var(--color-status-online)' : 'none',
+                          transition: 'all 0.3s ease',
+                        }} />
+                        <span style={{
+                          fontSize: 10,
+                          color: m.id === user?.id ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                          fontWeight: m.id === user?.id ? 600 : 400,
+                          flex: 1,
+                        }}>
+                          {m.name}{m.id === user?.id ? ' (you)' : ''}
+                        </span>
+                        <span style={{
+                          fontSize: 8, fontWeight: 600, letterSpacing: '0.04em',
+                          color: isActive ? 'var(--color-status-online)' : 'var(--color-text-disabled)',
+                          textTransform: 'uppercase',
+                        }}>
+                          {isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={() => setShowGroupSetup(true)} className="btn-sm btn-secondary" style={{ flex: 1, fontSize: 10, padding: '4px 8px' }}>
@@ -297,9 +313,14 @@ export function Sidebar() {
                 {user?.name || 'User'}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: userStatus === 'online' ? 'var(--color-status-online)' : 'var(--color-status-offline)' }} />
+                <div style={{
+                  width: 6, height: 6, borderRadius: '50%',
+                  background: userStatus === 'online' ? 'var(--color-status-online)' : 'var(--color-status-offline)',
+                  boxShadow: userStatus === 'online' ? '0 0 6px var(--color-status-online)' : 'none',
+                  transition: 'all 0.3s ease',
+                }} />
                 <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>
-                  {userStatus === 'online' ? 'Online' : 'Offline'}
+                  {userStatus === 'online' ? 'Active' : 'Inactive'}
                 </span>
               </div>
             </div>

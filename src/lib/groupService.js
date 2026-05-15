@@ -150,6 +150,8 @@ export async function deleteGroup(groupId) {
 
 /**
  * Update a user's status in a group.
+ * When setting 'online', also stores lastActiveAt so other clients
+ * can determine staleness.
  */
 export async function updateMemberStatus(groupId, userId, status) {
   const groupRef = doc(db, GROUPS_COL, groupId);
@@ -157,9 +159,14 @@ export async function updateMemberStatus(groupId, userId, status) {
   if (!snap.exists()) return;
 
   const data = snap.data();
-  const updatedMembers = (data.members || []).map(m =>
-    m.id === userId ? { ...m, status } : m
-  );
+  const updatedMembers = (data.members || []).map(m => {
+    if (m.id !== userId) return m;
+    const patch = { ...m, status };
+    if (status === 'online') {
+      patch.lastActiveAt = new Date().toISOString();
+    }
+    return patch;
+  });
   await updateDoc(groupRef, { members: updatedMembers });
 }
 
